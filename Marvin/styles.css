@@ -90,6 +90,7 @@ h1 {
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
     color: white;
     padding: 12px 20px;
+    border: none;
     border-radius: 50px;
     font-weight: 700;
     font-size: 0.95rem;
@@ -101,6 +102,13 @@ h1 {
     width: fit-content;
     box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
     animation: pulse 2s infinite;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.status-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
 }
 
 @keyframes pulse {
@@ -174,6 +182,17 @@ h1 {
 .modal-card p {
     line-height: 1.7;
     color: var(--text-secondary);
+}
+
+.modal-action {
+    margin-top: 18px;
+    border: none;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .modal-close {
@@ -252,18 +271,41 @@ body.modal-open {
     text-decoration: underline;
 }
 
+.contact-footer {
+    margin-top: 24px;
+    text-align: center;
+}
+
+.contact-label {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 10px 25px 10px 25px;
+    border-radius: 999px;
+    background: rgba(255, 107, 107, 0.12);
+    color: #c44545;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.contact-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
 .cta-button {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 10px;
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
     color: white;
     text-decoration: none;
-    padding: 18px 24px;
-    margin-top: 25px;
+    padding: 16px 18px;
     border-radius: 16px;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
     border: none;
     cursor: pointer;
@@ -271,7 +313,6 @@ body.modal-open {
     transition: all 0.3s ease;
     text-align: center;
     width: 100%;
-    max-width: 100%;
 }
 
 .cta-button:hover {

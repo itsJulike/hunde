@@ -18,14 +18,9 @@
         <img src="Marvin.jpg" alt="Billede af hunden Watson" class="avatar">
 
         <div class="content">
-            <div class="status-badge">
+            <button class="status-badge" id="open-modal" type="button">
                 <i class="fas fa-exclamation-circle"></i>
-                VÆK HJEMMEFRA? RING NU!
-            </div>
-
-            <button class="bio-trigger" id="open-modal" type="button">
-                <strong>Hvis du har fundet mig alene?</strong>
-                <span>Læs mere</span>
+                Har du fundet mig alene?
             </button>
 
             <div class="info-section">
@@ -72,23 +67,28 @@
                 </div>
             </div>
 
-            <a href="tel:+4529391418" class="cta-button">
-                <i class="fas fa-phone"></i>
-                Ring til ejer, Julie
-            </a>
-
-            <a href="tel:+4525357439" class="cta-button">
-                <i class="fas fa-phone"></i>
-                Ring til ejer, Rasmus
-            </a>
+            <div class="contact-footer">
+                <div class="contact-label">Ring til ejere</div>
+                <div class="contact-buttons">
+                    <a href="tel:+4529391418" class="cta-button contact-button">
+                        <i class="fas fa-phone"></i>
+                        <span>Julie</span>
+                    </a>
+                <a href="tel:+4525357439" class="cta-button contact-button">
+                    <i class="fas fa-phone"></i>
+                    <span>Rasmus</span>
+                </a>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="modal-overlay" id="info-modal" aria-hidden="true">
+    <div class="modal-overlay" id="info-modal" aria-hidden="true" onclick="if (event.target === this) closeModal()">
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <button class="modal-close" id="close-modal" type="button" aria-label="Luk modal">×</button>
-            <h3 id="modal-title">Hvis du har fundet mig alene</h3>
+            <button class="modal-close" id="close-modal" type="button" aria-label="Luk modal" onclick="closeModal()">×</button>
+            <h3 id="modal-title">Har du fundet mig alene?</h3>
             <p>Jeg er smuttet på eventyr uden lov. Jeg er helt ufarlig, men min ejer savner mig rigtig meget!</p>
+            <button class="modal-action" type="button" onclick="closeModal()">Luk</button>
         </div>
     </div>
 
@@ -119,12 +119,14 @@
         function openModal() {
             modal.classList.add('is-open');
             modal.setAttribute('aria-hidden', 'false');
+            modal.style.display = 'flex';
             document.body.classList.add('modal-open');
         }
 
         function closeModal() {
             modal.classList.remove('is-open');
             modal.setAttribute('aria-hidden', 'true');
+            modal.style.display = 'none';
             document.body.classList.remove('modal-open');
             localStorage.setItem(storageKey, 'true');
         }
@@ -137,14 +139,6 @@
         closeModalButton?.addEventListener('click', (event) => {
             event.stopPropagation();
             closeModal();
-        });
-        modal?.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-        modal?.querySelector('.modal-card')?.addEventListener('click', (event) => {
-            event.stopPropagation();
         });
 
         document.addEventListener('keydown', (event) => {
