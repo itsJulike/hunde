@@ -99,18 +99,28 @@
 
         function calculateAge(birthDate) {
             const today = new Date();
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDifference = today.getMonth() - birthDate.getMonth();
+            let years = today.getFullYear() - birthDate.getFullYear();
+            let months = today.getMonth() - birthDate.getMonth();
 
-            if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
+            if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+                years--;
+                months += 12;
             }
 
-            return age;
+            if (months === 0 && today.getDate() < birthDate.getDate()) {
+                months = 11;
+            }
+
+            if (years >= 3) {
+                return `${years} år`;
+            }
+
+            const totalMonths = years * 12 + months;
+            return `${totalMonths} måneder`;
         }
 
         if (ageValue) {
-            ageValue.textContent = `${calculateAge(birthday)} år`;
+            ageValue.textContent = calculateAge(birthday);
         }
 
         function openModal() {
