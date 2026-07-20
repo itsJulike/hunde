@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mød min hund - Watson</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="profile-card">
+        <div class="header-banner">
+            <h2>Hej, jeg hedder</h2>
+            <h1>WATSON</h1>
+        </div>
+
+        <img src="Marvin.jpg" alt="Billede af hunden Watson" class="avatar">
+
+        <div class="content">
+            <div class="status-badge">
+                <i class="fas fa-exclamation-circle"></i>
+                VÆK HJEMMEFRA? RING NU!
+            </div>
+
+            <button class="bio-trigger" id="open-modal" type="button">
+                <strong>Hvis du har fundet mig alene?</strong>
+                <span>Læs mere</span>
+            </button>
+
+            <div class="info-section">
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Adresse</div>
+                        <a class="info-value address-link" href="https://www.google.com/maps/dir/?api=1&destination=Markusvej%2015%2C%208471%20Sabro" target="_blank" rel="noopener noreferrer" aria-label="Start navigation to the address">
+                            Markusvej 15, 8471 Sabro
+                        </a>
+                    </div>
+                </div>
+
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-dog"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Race</div>
+                        <div class="info-value">Berner Sennen</div>
+                    </div>
+                </div>
+
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-birthday-cake"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Alder</div>
+                        <div class="info-value" id="age-value">Beregner alder...</div>
+                    </div>
+                </div>
+
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-capsules"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Vigtig medicin</div>
+                        <div class="info-value">Previcox dagligt hver morgen</div>
+                    </div>
+                </div>
+            </div>
+
+            <a href="tel:+4529391418" class="cta-button">
+                <i class="fas fa-phone"></i>
+                Ring til ejer, Julie
+            </a>
+
+            <a href="tel:+4525357439" class="cta-button">
+                <i class="fas fa-phone"></i>
+                Ring til ejer, Rasmus
+            </a>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="info-modal" hidden>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <button class="modal-close" id="close-modal" type="button" aria-label="Luk modal">×</button>
+            <h3 id="modal-title">Hvis du har fundet mig alene</h3>
+            <p>Jeg er smuttet på eventyr uden lov. Jeg er helt ufarlig, men min ejer savner mig rigtig meget!</p>
+        </div>
+    </div>
+
+    <script>
+        const birthday = new Date('2018-03-14');
+        const ageValue = document.getElementById('age-value');
+        const modal = document.getElementById('info-modal');
+        const openModalButton = document.getElementById('open-modal');
+        const closeModalButton = document.getElementById('close-modal');
+        const storageKey = 'watson-info-modal-seen';
+
+        function calculateAge(birthDate) {
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDifference = today.getMonth() - birthDate.getMonth();
+
+            if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+
+            return age;
+        }
+
+        if (ageValue) {
+            ageValue.textContent = `${calculateAge(birthday)} år`;
+        }
+
+        function openModal() {
+            modal.hidden = false;
+            document.body.classList.add('modal-open');
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            document.body.classList.remove('modal-open');
+            localStorage.setItem(storageKey, 'true');
+        }
+
+        if (!localStorage.getItem(storageKey)) {
+            openModal();
+        }
+
+        openModalButton?.addEventListener('click', openModal);
+        closeModalButton?.addEventListener('click', closeModal);
+        modal?.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+    </script>
+
+</body>
+</html>
