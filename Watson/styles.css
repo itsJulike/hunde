@@ -145,11 +145,15 @@ h1 {
     position: fixed;
     inset: 0;
     background: rgba(45, 52, 54, 0.7);
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 20px;
     z-index: 1000;
+}
+
+.modal-overlay.is-open {
+    display: flex;
 }
 
 .modal-card {
