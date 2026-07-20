@@ -337,11 +337,11 @@ body.modal-open {
 
 .landing-shell {
     width: 100%;
-    max-width: 760px;
+    max-width: 1100px;
 }
 
 .landing-card {
-    max-width: 760px;
+    max-width: 1100px;
 }
 
 .landing-intro {
@@ -354,8 +354,9 @@ body.modal-open {
 
 .dogs-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 18px;
+    align-items: stretch;
 }
 
 .dog-card-link {
@@ -407,6 +408,12 @@ body.modal-open {
     color: white;
     font-weight: 700;
     font-size: 0.95rem;
+}
+
+@media (max-width: 900px) {
+    .dogs-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 480px) {
