@@ -58,7 +58,7 @@
 
         .header-banner {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px 24px;
+            padding: 30px 24px 20px;
             text-align: center;
             color: white;
         }
@@ -69,7 +69,7 @@
             border-radius: 50%;
             object-fit: cover;
             border: 6px solid white;
-            margin: -80px auto 20px;
+            margin: -60px auto 20px;
             display: block;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
@@ -95,16 +95,18 @@
         }
 
         .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
             background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
             color: white;
             padding: 12px 20px;
             border-radius: 50px;
             font-weight: 700;
             font-size: 0.95rem;
-            margin-bottom: 28px;
+            margin: 0 auto 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: fit-content;
             box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
             animation: pulse 2s infinite;
         }
@@ -131,6 +133,7 @@
 
         .info-section {
             margin-bottom: 32px;
+            width: 100%;
         }
 
         .info-item {
@@ -195,6 +198,7 @@
             transition: all 0.3s ease;
             text-align: center;
             width: 100%;
+            max-width: 100%;
         }
 
         .cta-button:hover {
