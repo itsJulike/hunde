@@ -172,6 +172,18 @@ h1 {
     color: var(--text-primary);
 }
 
+.address-link {
+    display: inline-block;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: color 0.2s ease;
+}
+
+.address-link:hover {
+    color: var(--secondary);
+    text-decoration: underline;
+}
+
 .cta-button {
     display: flex;
     align-items: center;
