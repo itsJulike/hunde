@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mine Hunde</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --accent-color: #2b7a78;
+            --btn-text: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding: 40px 20px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+        }
+
+        header p {
+            font-size: 1.1rem;
+            color: #666666;
+        }
+
+        .dogs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .dog-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .dog-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .dog-card-content {
+            padding: 30px 24px;
+            text-align: center;
+        }
+
+        .dog-card h2 {
+            font-size: 1.6rem;
+            margin-bottom: 8px;
+            color: var(--accent-color);
+        }
+
+        .dog-card p {
+            color: #666666;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .dog-card-btn {
+            display: inline-block;
+            background-color: var(--accent-color);
+            color: var(--btn-text);
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+        }
+
+        .dog-card-btn:hover {
+            background-color: #1f5854;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #999999;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            .dogs-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐾 Mine Hunde</h1>
+            <p>Lær mine hundevenner nærmere at kende</p>
+        </header>
+
+        <div class="dogs-grid">
+            <a href="Marvin" class="dog-card">
+                <div class="dog-card-content">
+                    <h2>Marvin</h2>
+                    <p>Labrador Retriever</p>
+                    <span class="dog-card-btn">Besøg profil</span>
+                </div>
+            </a>
+        </div>
+
+        <footer>
+            <p>💕 Lavet med kærlighed til mine hunde</p>
+        </footer>
+    </div>
+</body>
+</html>

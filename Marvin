@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mød min hund!</title>
+    <title>Mød min hund</title>
     <style>
         :root {
             --bg-color: #f4f6f8;
@@ -118,6 +118,10 @@
 
         <!-- Vigtig info i tabelform -->
         <table class="info-table">
+                        <tr>
+                <td>Adresse:</td>
+                <td>Markusvej 15, 8471 Sabro</td>
+            </tr>
             <tr>
                 <td>Race:</td>
                 <td>Labrador retriever</td>
