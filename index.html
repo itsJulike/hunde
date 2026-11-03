@@ -3,53 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mine Hunde</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#2f6b4f">
+    <title>Marvin, Watson og Fnug</title>
+    <meta name="description" content="Hundene fra Markusvej i Sabro. Har du fundet en af os, så tryk på hunden og ring til vores familie.">
+    <meta property="og:title" content="Marvin, Watson og Fnug">
+    <meta property="og:description" content="Hundene fra Markusvej i Sabro.">
+    <meta property="og:image" content="https://markusvej.dk/Marvin/foto.jpg">
+    <meta property="og:url" content="https://markusvej.dk/">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="landing-shell">
-        <div class="profile-card landing-card">
-            <div class="header-banner">
-                <h2>Velkommen til</h2>
-                <h1>MINE HUNDE</h1>
-            </div>
+    <main class="landing">
+        <header class="landing-header">
+            <p class="eyebrow">Hundene fra Markusvej</p>
+            <h1>Marvin, Watson og Fnug</h1>
+            <p>Har du fundet en af os? Tryk på hunden for at se, hvem du skal ringe til.</p>
+        </header>
 
-            <div class="content">
-                <div class="landing-intro">
-                    <p>Her finder du mine tre bedste venner og deres profiler med adresse, vigtig information og kontaktoplysninger.</p>
+        <div class="dogs-grid">
+            <a href="Marvin/" class="dog-card">
+                <img src="Marvin/foto.jpg" alt="" style="object-position: center 20%">
+                <div class="dog-card-body">
+                    <h2>Marvin</h2>
+                    <p>Labrador retriever</p>
                 </div>
+            </a>
 
-                <div class="dogs-grid">
-                    <a href="Marvin/" class="dog-card-link">
-                        <div class="dog-card">
-                            <img src="Marvin/Marvin.jpg" alt="Marvin" class="avatar small-avatar">
-                            <h3>Marvin</h3>
-                            <p>Labrador Retriever</p>
-                            <span class="dog-card-btn">Se profil</span>
-                        </div>
-                    </a>
-
-                    <a href="Watson/" class="dog-card-link">
-                        <div class="dog-card">
-                            <img src="Watson/Watson.JPEG" alt="Watson" class="avatar small-avatar">
-                            <h3>Watson</h3>
-                            <p>Berner Sennen</p>
-                            <span class="dog-card-btn">Se profil</span>
-                        </div>
-                    </a>
-
-                    <a href="Fnug/" class="dog-card-link">
-                        <div class="dog-card">
-                            <img src="Fnug/Fnug.JPEG" alt="Fnug" class="avatar small-avatar">
-                            <h3>Fnug</h3>
-                            <p>Grand Danois</p>
-                            <span class="dog-card-btn">Se profil</span>
-                        </div>
-                    </a>
+            <a href="Watson/" class="dog-card">
+                <img src="Watson/foto.jpg" alt="" style="object-position: center 40%">
+                <div class="dog-card-body">
+                    <h2>Watson</h2>
+                    <p>Berner sennen</p>
                 </div>
-            </div>
+            </a>
+
+            <a href="Fnug/" class="dog-card">
+                <img src="Fnug/foto.jpg" alt="" style="object-position: center 25%">
+                <div class="dog-card-body">
+                    <h2>Fnug</h2>
+                    <p>Grand danois</p>
+                </div>
+            </a>
         </div>
-    </div>
+    </main>
 </body>
 </html>
