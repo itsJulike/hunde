@@ -2,8 +2,9 @@
 
 // Fælles login for Opskrifter og Madplan.
 //
-// - Opskrifter, billeder og madplan ligger i et PRIVAT GitHub-repo (DATA_REPO). Kun en GitHub-nøgle
-//   med adgang til det repo kan læse eller ændre dem.
+// - Opskrifter og billeder ligger i et OFFENTLIGT GitHub-repo (RECIPE_REPO), så alle kan se dem uden
+//   login, fx når en opskrift bliver delt. Kun en GitHub-nøgle med adgang til repoet kan ændre dem.
+// - Madplanen ligger i et PRIVAT GitHub-repo (DATA_REPO). Kun en GitHub-nøgle med adgang kan læse den.
 // - Nøglerne (GitHub, Anthropic, Todoist) ligger krypteret i noegler.json i LOGIN_REPO, som er
 //   offentligt, så den kan hentes før man er logget ind. Krypteringen er AES-256-GCM med en nøgle,
 //   der laves ud fra adgangskoden med PBKDF2-SHA256 og mange gentagelser, så det tager lang tid at gætte.
@@ -13,6 +14,7 @@
 
 const Login = (() => {
   const DATA_REPO = 'itsJulike/opskrifter-data';
+  const RECIPE_REPO = 'itsJulike/opskrifter';
   const LOGIN_REPO = 'itsJulike/opskrifter-login';
   const SITE_REPO = 'itsJulike/hunde';
   const BUNDLE = 'noegler.json';
@@ -105,7 +107,7 @@ const Login = (() => {
   // Kan nøglen skrive i repoet? GitHubs "permissions" fortæller kun, hvad kontoen må, ikke nøglen.
   // Derfor prøver vi at ændre en fil med en bevidst forkert versions-id (sha). GitHub afviser altid
   // det uden at ændre noget: 409/422 betyder, at nøglen må skrive; 403/404, at den ikke må.
-  const PROBE = { [DATA_REPO]: 'README.md', [LOGIN_REPO]: 'README.md', [SITE_REPO]: 'CNAME' };
+  const PROBE = { [DATA_REPO]: 'README.md', [RECIPE_REPO]: 'recipes.json', [LOGIN_REPO]: 'README.md', [SITE_REPO]: 'CNAME' };
   async function canPush(repo, token) {
     const res = await api(`/repos/${repo}/contents/${PROBE[repo]}`, {
       token,
@@ -121,13 +123,14 @@ const Login = (() => {
   // Tjekker nøglerne, før de gemmes. Returnerer en liste af fejl.
   async function checkKeys({ github, claude, todoist }) {
     const errors = [];
-    const [data, login, site] = await Promise.all([canPush(DATA_REPO, github), canPush(LOGIN_REPO, github), canPush(SITE_REPO, github)]);
+    const [data, recipes, login, site] = await Promise.all([canPush(DATA_REPO, github), canPush(RECIPE_REPO, github), canPush(LOGIN_REPO, github), canPush(SITE_REPO, github)]);
     if (data === 'bad') errors.push('GitHub-nøglen virker ikke.');
-    else if ([data, login, site].includes('unknown')) errors.push('GitHub svarede ikke som forventet, så nøglen kunne ikke tjekkes. Prøv igen om lidt.');
+    else if ([data, recipes, login, site].includes('unknown')) errors.push('GitHub svarede ikke som forventet, så nøglen kunne ikke tjekkes. Prøv igen om lidt.');
     else {
       if (data !== 'yes') errors.push(`GitHub-nøglen skal kunne skrive i ${DATA_REPO}.`);
+      if (recipes !== 'yes') errors.push(`GitHub-nøglen skal kunne skrive i ${RECIPE_REPO}.`);
       if (login !== 'yes') errors.push(`GitHub-nøglen skal kunne skrive i ${LOGIN_REPO}.`);
-      if (site === 'yes') errors.push(`GitHub-nøglen kan også ændre ${SITE_REPO} (selve markusvej.dk). Lav en ny nøgle, der kun har adgang til ${DATA_REPO} og ${LOGIN_REPO}.`);
+      if (site === 'yes') errors.push(`GitHub-nøglen kan også ændre ${SITE_REPO} (selve markusvej.dk). Lav en ny nøgle, der kun har adgang til ${DATA_REPO}, ${RECIPE_REPO} og ${LOGIN_REPO}.`);
     }
     if (claude) {
       try {
@@ -166,12 +169,14 @@ const Login = (() => {
     el.hidden = !msg;
   }
 
-  async function showLogin(app, { name, onDone }) {
+  // back: et link tilbage (fx til opskrifterne, som kan ses uden login).
+  async function showLogin(app, { name, onDone, back = '' }) {
     document.title = `${name} – log ind`;
     app.innerHTML = `
       <div class="wrap login-wrap">
+        ${back ? `<nav class="bar"><a class="iconbtn" href="${esc(back)}">← Tilbage</a></nav>` : ''}
         <header class="hero login-hero"><span class="login-icon">${ICON}</span><h1>${esc(name)}</h1>
-          <p class="sub">Log ind for at se og rette opskrifter og madplan.</p></header>
+          <p class="sub">Log ind for at tilføje og rette opskrifter og se madplanen.</p></header>
         <form class="form" id="loginForm">
           ${USER}
           <label class="field"><span>Adgangskode</span>
@@ -192,10 +197,10 @@ const Login = (() => {
     }
     if (bundle === null) {
       // Intet login endnu: vis opsætningen i stedet.
-      return showSetup(app, { name, onDone, first: true });
+      return showSetup(app, { name, onDone, first: true, back });
     }
     alt.innerHTML = 'Glemt adgangskoden? <button type="button" class="linkbtn" id="toSetup">Lav et nyt login med dine nøgler</button>';
-    document.getElementById('toSetup').addEventListener('click', () => showSetup(app, { name, onDone, reset: true }));
+    document.getElementById('toSetup').addEventListener('click', () => showSetup(app, { name, onDone, reset: true, back }));
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = form.querySelector('button[type="submit"]');
@@ -203,7 +208,7 @@ const Login = (() => {
       setStatus(status, 'Låser op…', 'busy');
       try {
         bundle = bundle || await fetchBundle();
-        if (bundle === null) return showSetup(app, { name, onDone, first: true });
+        if (bundle === null) return showSetup(app, { name, onDone, first: true, back });
         const secrets = await unseal(bundle, form.elements.password.value);
         useSecrets(secrets);
         setStatus(status, 'Logget ind ✓', 'good');
@@ -217,19 +222,19 @@ const Login = (() => {
   }
 
   // Opret login, skift nøgler eller adgangskode.
-  function showSetup(app, { name, onDone, first = false, reset = false }) {
+  function showSetup(app, { name, onDone, first = false, reset = false, back = '' }) {
     const editing = loggedIn();
     document.title = editing ? 'Skift nøgler eller adgangskode' : 'Opret login';
     const val = (k) => (editing ? esc(load(k, '')) : '');
     app.innerHTML = `
       <div class="wrap login-wrap">
-        ${editing ? `<nav class="bar"><button class="iconbtn" type="button" id="setupBack">← Tilbage</button></nav>` : ''}
+        ${editing ? `<nav class="bar"><button class="iconbtn" type="button" id="setupBack">← Tilbage</button></nav>` : back ? `<nav class="bar"><a class="iconbtn" href="${esc(back)}">← Tilbage</a></nav>` : ''}
         <header class="hero login-hero">${editing ? '' : `<span class="login-icon">${ICON}</span>`}
           <h1>${editing ? 'Skift nøgler eller adgangskode' : first ? 'Opret login' : 'Nyt login'}</h1>
           <p class="sub">${first ? 'Første gang: skriv dine nøgler og vælg en adgangskode. Bagefter skal du kun bruge adgangskoden for at logge ind på andre enheder.' : reset ? 'Skriv dine nøgler igen og vælg en ny adgangskode. Den gamle adgangskode holder op med at virke.' : 'Nøglerne krypteres med adgangskoden og gemmes, så alle enheder kan logge ind med den.'}</p>
         </header>
         <form class="form" id="setupForm" autocomplete="off">
-          <label class="field"><span>GitHub-nøgle</span><small>Skal kunne skrive i ${DATA_REPO} og ${LOGIN_REPO}, og må ikke have adgang til ${SITE_REPO}. Se LÆS MIG.</small>
+          <label class="field"><span>GitHub-nøgle</span><small>Skal kunne skrive i ${DATA_REPO}, ${RECIPE_REPO} og ${LOGIN_REPO}, og må ikke have adgang til ${SITE_REPO}. Se LÆS MIG.</small>
             <input name="github" type="password" value="${val('githubNoegle')}" placeholder="github_pat_…" autocomplete="off" required></label>
           <label class="field"><span>Anthropic-nøgle <em>(valgfri)</em></span><small>Til at hente opskrifter fra links, tekst og billeder.</small>
             <input name="claude" type="password" value="${val('claudeNoegle')}" placeholder="sk-ant-…" autocomplete="off"></label>
@@ -250,7 +255,7 @@ const Login = (() => {
     const form = document.getElementById('setupForm');
     const status = document.getElementById('setupStatus');
     document.getElementById('setupBack')?.addEventListener('click', () => history.back());
-    document.getElementById('toLogin')?.addEventListener('click', () => showLogin(app, { name, onDone }));
+    document.getElementById('toLogin')?.addEventListener('click', () => showLogin(app, { name, onDone, back }));
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = form.elements;
@@ -281,7 +286,7 @@ const Login = (() => {
     return `
       <section class="account">
         <h2>Login</h2>
-        <p class="hint">Du er logget ind på denne enhed. Opskrifter og madplan ligger i det private repo ${DATA_REPO}.</p>
+        <p class="hint">Du er logget ind på denne enhed. Opskrifterne ligger i det offentlige repo ${RECIPE_REPO}, så alle kan se dem. Madplanen ligger i det private repo ${DATA_REPO}.</p>
         <button class="btn" type="button" id="changeLogin">Skift nøgler eller adgangskode</button>
         <button class="btn danger" type="button" id="logout">Log ud på denne enhed</button>
       </section>`;
@@ -311,8 +316,9 @@ const Login = (() => {
     location.reload();
   }
 
-  /* ---------- Billeder fra det private repo ---------- */
-  // <img data-img="billeder/x.jpg"> hentes med nøglen, gemmes til offline brug og vises.
+  /* ---------- Billeder til opskrifterne ---------- */
+  // <img data-img="billeder/x.jpg"> hentes fra RECIPE_REPO (med nøglen, hvis man er logget ind, så nye
+  // billeder ses med det samme), gemmes til offline brug og vises.
   const urls = new Map();
   const cacheKey = (path) => `${location.origin}/__billeder/${path}`;
   function imageURL(path) {
@@ -322,7 +328,11 @@ const Login = (() => {
       try { cache = await caches.open(IMG_CACHE); } catch { /* ingen cache */ }
       let res = cache && await cache.match(cacheKey(path));
       if (!res) {
-        const r = await api(`/repos/${DATA_REPO}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=main`, { token: load('githubNoegle', ''), raw: true });
+        const file = path.split('/').map(encodeURIComponent).join('/');
+        const token = load('githubNoegle', '');
+        const r = token
+          ? await api(`/repos/${RECIPE_REPO}/contents/${file}?ref=main`, { token, raw: true })
+          : await fetch(`https://raw.githubusercontent.com/${RECIPE_REPO}/main/${file}`).catch(() => { throw fail('Ingen forbindelse.', 'offline'); });
         if (!r.ok) throw fail('Billedet kunne ikke hentes.');
         const blob = await r.blob();
         res = new Response(blob, { headers: { 'Content-Type': 'image/jpeg' } });
@@ -349,5 +359,5 @@ const Login = (() => {
     new MutationObserver(() => hydrate(document)).observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  return { DATA_REPO, LOGIN_REPO, SITE_REPO, loggedIn, showLogin, showSetup, accountHTML, bindAccount, logout, imageURL, forgetImage, hydrate, seal, unseal };
+  return { DATA_REPO, RECIPE_REPO, LOGIN_REPO, SITE_REPO, loggedIn, showLogin, showSetup, accountHTML, bindAccount, logout, imageURL, forgetImage, hydrate, seal, unseal };
 })();

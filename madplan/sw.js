@@ -1,6 +1,6 @@
 // Gemmer madplanen offline. Svarer fra cachen med det samme og henter en frisk udgave i baggrunden.
 // Planen og opskrifterne ligger i et privat repo og hentes af appen selv, ikke herfra.
-const CACHE = 'madplan-v9';
+const CACHE = 'madplan-v10';
 const SHELL = [
   './',
   'index.html',

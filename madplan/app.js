@@ -5,7 +5,8 @@
 // og altid også på enheden, så den virker offline.
 
 const app = document.getElementById('app');
-const REPO = Login.DATA_REPO; // privat repo med opskrifter, billeder og madplan
+const REPO = Login.DATA_REPO; // privat repo med madplanen
+const RECIPE_REPO = Login.RECIPE_REPO; // offentligt repo med opskrifter og billeder
 const BRANCH = 'main';
 const PLAN = 'madplan/plan.json';
 const RECIPES = 'recipes.json';
@@ -329,12 +330,12 @@ const textToB64 = (s) => {
 };
 const b64ToText = (b) => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
 
-async function github(path, { method = 'GET', body, raw = false } = {}) {
+async function github(path, { method = 'GET', body, raw = false, repo = REPO } = {}) {
   const token = keys().github;
   if (!token) throw fail('Tilføj din GitHub-nøgle under Indstillinger.', 'nokey');
   let res;
   try {
-    res = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}${method === 'GET' ? `?ref=${BRANCH}` : ''}`, {
+    res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}${method === 'GET' ? `?ref=${BRANCH}` : ''}`, {
       method,
       cache: 'no-store',
       headers: {
@@ -348,16 +349,16 @@ async function github(path, { method = 'GET', body, raw = false } = {}) {
     throw fail('Ingen forbindelse.', 'offline');
   }
   if (res.status === 401) throw fail('GitHub-nøglen virker ikke (måske er den udløbet).', 'auth');
-  if (res.status === 403 || (res.status === 404 && method !== 'GET')) throw fail(`GitHub-nøglen må ikke skrive i ${REPO}.`, 'auth');
+  if (res.status === 403 || (res.status === 404 && method !== 'GET')) throw fail(`GitHub-nøglen må ikke skrive i ${repo}.`, 'auth');
   if (res.status === 409 || (res.status === 422 && method !== 'GET')) throw fail('Filen blev ændret imens.', 'conflict');
   if (!res.ok && res.status !== 404) throw fail(`GitHub svarede med fejl ${res.status}.`);
   return res;
 }
 
-// Opskrifter og plan hentes fra det private repo. En kopi gemmes på enheden, så appen også virker offline.
+// Opskrifter hentes fra det offentlige repo og planen fra det private. En kopi gemmes på enheden, så appen også virker offline.
 async function loadRecipes() {
   try {
-    const res = await github(RECIPES, { raw: true });
+    const res = await github(RECIPES, { raw: true, repo: RECIPE_REPO });
     const list = res.status === 404 ? [] : await res.json();
     save('opskrifterKopi', list);
     return list;
