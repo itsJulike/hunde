@@ -1,0 +1,120 @@
+/* Madplan bygger videre på opskriftsappens udseende (../opskrifter/app.css). Her er kun det, der er nyt. */
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+body.locked { overflow: hidden; }
+
+.weeknav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 18px 0 6px; }
+.weeknav button, .weeknav .now {
+  display: inline-flex; align-items: center; gap: 2px;
+  min-height: 40px; padding: 6px 12px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink);
+  font-size: 0.9rem; font-weight: 600; cursor: pointer;
+}
+.weeknav .now { color: var(--accent); }
+.weeknav .now.on { background: transparent; border-color: transparent; color: var(--muted); font-weight: 500; cursor: default; }
+
+.sync { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+.sync.local { padding: 9px 12px; border-radius: 12px; background: var(--t3-bg); color: var(--t3-fg); }
+.sync.error { padding: 9px 12px; border-radius: 12px; background: #fde4e1; color: #a5281b; }
+.sync a, .sync .linkbtn { color: inherit; font-weight: 700; text-decoration: underline; padding: 0; font-size: inherit; }
+.sync.saved { color: var(--accent); }
+
+.days { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.day { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px 12px; box-shadow: var(--shadow); }
+.day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.dayhead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.dayhead b { font: 800 1.05rem var(--head); letter-spacing: -0.01em; }
+.dayhead span { font-size: 0.82rem; color: var(--muted); }
+.today .dayhead span { color: var(--accent); font-weight: 700; }
+
+.meal { display: flex; gap: 12px; align-items: center; }
+.meal .thumb { width: 60px; height: 60px; border-radius: 12px; flex: none; }
+.meal .body { flex: 1; min-width: 0; }
+.meal h3 { margin: 0 0 2px; font: 700 1.02rem/1.25 var(--head); letter-spacing: -0.01em; }
+.meal .meta { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.meal-actions { display: flex; flex-direction: column; gap: 2px; flex: none; align-self: flex-start; }
+.meal.free { min-height: 44px; }
+.meal.free .meal-actions { flex-direction: row; align-self: center; }
+.free-text { flex: 1; margin: 0; font-weight: 600; }
+.free-text.muted { color: var(--muted); font-weight: 400; font-style: italic; }
+.portion { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.8rem; color: var(--muted); }
+.portion select {
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+  padding: 3px 6px; font-size: 0.85rem; font-weight: 600; color: var(--ink);
+}
+
+.mini {
+  display: grid; place-items: center;
+  width: 36px; height: 34px; padding: 0;
+  border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.mini:active { background: var(--chip); }
+
+.emptyday {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+  min-height: 52px; border: 1.5px dashed var(--line); border-radius: 12px;
+  background: transparent; color: var(--accent); font-weight: 600; cursor: pointer;
+}
+.emptyday:active { background: var(--chip); }
+
+.plan-actions { display: grid; gap: 10px; margin-top: 18px; }
+.plan-actions .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin: 0; }
+.prefs { margin-top: 18px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.prefs summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
+.prefs .hint { margin: 8px 0; }
+.wrapchips { flex-wrap: wrap; overflow: visible; padding-bottom: 2px; }
+#clearWeek { width: 100%; margin-top: 10px; }
+
+/* Vælg ret */
+.sheet-wrap {
+  position: fixed; inset: 0; z-index: 20;
+  background: rgb(10 15 10 / 45%);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet {
+  width: 100%; max-width: 760px; max-height: 88vh;
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg); border-radius: 20px 20px 0 0;
+  padding: 14px max(16px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  animation: up .18s ease-out;
+}
+@keyframes up { from { transform: translateY(30px); opacity: 0.5; } }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; }
+.sheet-head h2 { margin: 0; font: 800 1.3rem var(--head); letter-spacing: -0.02em; }
+.sheet-head h2 span { font: 500 0.9rem var(--sans); color: var(--muted); margin-left: 4px; }
+.free-form { display: flex; gap: 8px; }
+.free-form input {
+  flex: 1; min-width: 0; padding: 11px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+  outline: none;
+}
+.free-form input:focus { border-color: var(--accent); }
+.free-form .btn { margin: 0; display: inline-flex; align-items: center; gap: 6px; }
+#addForm { margin: 14px 0; }
+.pick-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: grid; gap: 6px; -webkit-overflow-scrolling: touch; }
+.pick {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer;
+}
+.pick.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.pick .thumb { width: 48px; height: 48px; border-radius: 10px; flex: none; }
+.pick .body { display: grid; gap: 2px; min-width: 0; }
+.pick b { font: 700 1rem var(--head); }
+.pick small { color: var(--muted); font-size: 0.8rem; }
+.pick-list .empty { padding: 24px 0; }
+
+/* Indkøbsliste */
+.hero .sub { margin: -6px 0 0; color: var(--muted); font-size: 0.92rem; }
+.shop label { align-items: center; }
+.shop label > span { flex: 1; min-width: 0; }
+.shop small { display: block; color: var(--muted); font-size: 0.76rem; }
+.shop input:checked + span small { text-decoration: none; }
+.shop .mini { width: 32px; height: 30px; }
+.done-list { opacity: 0.85; }
+.shop-hint { margin-top: 14px; }
+
+@media (prefers-color-scheme: dark) {
+  .sheet-wrap { background: rgb(0 0 0 / 60%); }
+  .sync.error { background: #4a1712; color: #ffb4a8; }
+}
