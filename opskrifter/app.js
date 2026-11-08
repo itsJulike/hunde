@@ -97,11 +97,11 @@ function renderHome() {
           <h1>Opskrifter</h1>
           <p class="sub">${n} ${n === 1 ? 'opskrift' : 'opskrifter'}</p>
         </div>
-        <div class="top-actions">
+        ${Login.loggedIn() ? `<div class="top-actions">
           <a class="settings" href="../madplan/" aria-label="Madplan">${icon.cal}</a>
           <a class="settings" href="#/indstillinger" aria-label="Indstillinger">${icon.gear}</a>
           <a class="add" href="#/ny" aria-label="Ny opskrift">${icon.plus}</a>
-        </div>
+        </div>` : ''}
       </header>
       <div class="filters">
         <label class="search">
@@ -121,6 +121,7 @@ function renderHome() {
         </select>
       </div>
       <ul class="list" id="list"></ul>
+      ${Login.loggedIn() ? '' : '<p class="owner"><a href="#/indstillinger">Log ind for at tilføje og rette opskrifter</a></p>'}
     </div>`;
 
   const q = document.getElementById('q');
@@ -283,7 +284,7 @@ function renderRecipe(r) {
       <nav class="bar">
         <a class="iconbtn" href="#/" aria-label="Tilbage til opskrifter">${icon.back}<span>Opskrifter</span></a>
         <div class="actions">
-          <a class="iconbtn" href="#/ret/${encodeURIComponent(r.id)}" aria-label="Ret opskrift">${icon.edit}</a>
+          ${Login.loggedIn() ? `<a class="iconbtn" href="#/ret/${encodeURIComponent(r.id)}" aria-label="Ret opskrift">${icon.edit}</a>` : ''}
           <button class="iconbtn" id="share" type="button" aria-label="Del">${icon.share}</button>
           <button class="iconbtn" id="fav" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Fjern fra favoritter' : 'Tilføj til favoritter'}">${icon.heart(fav)}</button>
         </div>
@@ -347,10 +348,12 @@ function renderRecipe(r) {
   });
 
   document.getElementById('share').addEventListener('click', async () => {
-    const data = { title: r.titel, url: location.href };
+    // Del altid det rene link til opskriften. Det kan åbnes uden login.
+    const url = location.origin + location.pathname + '#/' + encodeURIComponent(r.id);
+    const data = { title: r.titel, url };
     try {
       if (navigator.share) await navigator.share(data);
-      else { await navigator.clipboard.writeText(location.href); toast('Link kopieret'); }
+      else { await navigator.clipboard.writeText(url); toast('Link kopieret'); }
     } catch { /* annulleret */ }
   });
 
@@ -455,9 +458,9 @@ function shrink(file, max = 1568, quality = 0.85) {
 
 /* ---------- Gem på GitHub og hent med Claude ---------- */
 // Appen ligger på GitHub Pages, som ikke kan køre kode på serveren. Opskrifter og billeder ligger i det
-// private repo Login.DATA_REPO og hentes og gemmes med GitHub-nøglen. Claude kaldes direkte fra telefonen.
-// Nøglerne får man ved at logge ind (se login.js).
-const REPO = Login.DATA_REPO;
+// offentlige repo Login.RECIPE_REPO, så alle kan se dem uden login. De gemmes med GitHub-nøglen, som man
+// får ved at logge ind (se login.js). Claude kaldes direkte fra telefonen.
+const REPO = Login.RECIPE_REPO;
 const BRANCH = 'main';
 const DIR = '';
 const MODEL = 'claude-haiku-5-5';
@@ -589,7 +592,7 @@ async function deleteRecipe(r) {
   return list;
 }
 
-// Billeder ligger i det private repo og hentes med nøglen (se Login.hydrate). Nye billeder vises med det samme.
+// Billeder hentes fra Login.RECIPE_REPO (se Login.hydrate). Nye billeder vises med det samme.
 const imgAttr = (path) => (state.localImages[path] ? `src="${esc(state.localImages[path])}"` : `data-img="${esc(path)}"`);
 
 async function claudeImport({ link, tekst, images }) {
@@ -989,12 +992,18 @@ function route() {
   if (id === 'indstillinger') {
     onHome = false;
     setWake(false);
+    if (!Login.loggedIn()) return Login.showLogin(app, { name: 'Opskrifter', back: '#/', onDone: () => { location.hash = '#/'; location.reload(); } });
     return renderSettings();
   }
   if (id === 'ny' || id.startsWith('ny?') || id.startsWith('ret/')) {
     const edit = id.startsWith('ret/') && state.recipes.find((x) => x.id === id.slice(4));
     onHome = false;
     setWake(false);
+    // Uden login vises opskriften (eller forsiden) i stedet for formularen.
+    if (!Login.loggedIn()) {
+      history.replaceState(null, '', edit ? '#/' + encodeURIComponent(edit.id) : '#/');
+      return route();
+    }
     return renderForm(edit || null, new URLSearchParams(id.split('?')[1] || ''));
   }
   const r = id && state.recipes.find((x) => x.id === id);
@@ -1008,10 +1017,22 @@ function route() {
   }
 }
 
-// Opskrifterne hentes fra det private repo. En kopi gemmes på enheden, så appen også virker offline.
+// Opskrifterne hentes fra det offentlige repo: med nøglen, hvis man er logget ind (så ændringer ses med
+// det samme), ellers direkte uden login. En kopi gemmes på enheden, så appen også virker offline.
+async function publicRecipes() {
+  let res;
+  try {
+    res = await fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/recipes.json?t=${Date.now()}`, { cache: 'no-store' });
+  } catch {
+    throw fail('Ingen forbindelse.', 'offline');
+  }
+  if (res.status === 404) return { status: 404, json: async () => [] };
+  if (!res.ok) throw fail(`GitHub svarede med fejl ${res.status}.`);
+  return res;
+}
 async function loadRecipes() {
   try {
-    const res = await github('recipes.json', { raw: true });
+    const res = Login.loggedIn() ? await github('recipes.json', { raw: true }) : await publicRecipes();
     const list = res.status === 404 ? [] : await res.json();
     save('opskrifterKopi', list);
     return list;
@@ -1024,7 +1045,6 @@ async function loadRecipes() {
 
 let started = false;
 async function start(reload = false) {
-  if (!Login.loggedIn()) return Login.showLogin(app, { name: 'Opskrifter', onDone: () => start() });
   try {
     state.recipes = normalize(await loadRecipes());
   } catch (ex) {

@@ -5,9 +5,9 @@ indkøbsliste. Appen ligger i mappen `madplan/` i `itsJulike/hunde`, ved siden a
 
 ## Log ind
 
-Madplan bruger samme login som Opskrifter (se `opskrifter/LÆS MIG.md`). Opskrifter og madplan ligger
-i det private repo `itsJulike/opskrifter-data` (madplanen i `madplan/plan.json`), og alle, der er
-logget ind, ser den samme plan.
+Madplan bruger samme login som Opskrifter (se `opskrifter/LÆS MIG.md`). Madplanen ligger i det
+private repo `itsJulike/opskrifter-data` (i `madplan/plan.json`), og alle, der er logget ind, ser den
+samme plan. Opskrifterne hentes fra det offentlige repo `itsJulike/opskrifter`.
 
 1. Åbn `https://markusvej.dk/madplan/` i Safari og log ind med adgangskoden.
 2. Tryk **Del** → **Føj til hjemmeskærm**, åbn appen derfra, og log ind igen (hjemmeskærms-appen

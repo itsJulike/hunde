@@ -5,8 +5,11 @@ bruges også af Madplan (`markusvej.dk/madplan`). Hundesiderne bliver ikke rørt
 
 ## Sådan er det skruet sammen
 
-- **Opskrifter, billeder og madplan** ligger i det **private** repo `itsJulike/opskrifter-data`.
-  Kun en GitHub-nøgle med adgang til det repo kan læse eller ændre dem.
+- **Opskrifter og billeder** ligger i det **offentlige** repo `itsJulike/opskrifter`
+  (`recipes.json` og `billeder/`). Alle kan se dem uden login, så du kan dele en opskrift med hvem som
+  helst. Kun en GitHub-nøgle med adgang til repoet kan ændre dem.
+- **Madplanen** ligger i det **private** repo `itsJulike/opskrifter-data`. Kun en GitHub-nøgle med
+  adgang til det repo kan læse eller ændre den.
 - **Nøglerne** (GitHub, Anthropic, Todoist) ligger krypteret i `noegler.json` i det offentlige repo
   `itsJulike/opskrifter-login`. Filen er krypteret med AES-256-GCM med en nøgle, der laves ud fra
   din adgangskode (PBKDF2-SHA256, 1.000.000 gentagelser), så den er værdiløs uden adgangskoden.
@@ -20,8 +23,8 @@ bruges også af Madplan (`markusvej.dk/madplan`). Hundesiderne bliver ikke rørt
 1. Gå til https://github.com/settings/personal-access-tokens/new (GitHub → Settings → Developer
    settings → Personal access tokens → Fine-grained tokens → Generate new token).
 2. Navn: "Opskrifter-app". Udløb: fx 1 år.
-3. **Repository access:** *Only select repositories* → `itsJulike/opskrifter-data` og
-   `itsJulike/opskrifter-login`. **Ikke** `hunde`.
+3. **Repository access:** *Only select repositories* → `itsJulike/opskrifter`,
+   `itsJulike/opskrifter-data` og `itsJulike/opskrifter-login`. **Ikke** `hunde`.
 4. **Permissions → Repository permissions → Contents:** *Read and write*. Intet andet.
 5. Tryk **Generate token** og kopiér nøglen (`github_pat_…`).
 6. Åbn `https://markusvej.dk/opskrifter/`. Første gang vises **Opret login**: sæt GitHub-nøglen ind,
@@ -35,15 +38,23 @@ opskrift fra tekst eller billede koster under 1 øre, fra et link ca. 1–3 øre
 
 **Todoist-nøgle:** Todoist → Indstillinger → Integrationer → Udvikler → API-token.
 
+## Del en opskrift
+
+Tryk på **Del-knappen** i en opskrift og send linket. Modtageren ser opskriften uden at logge ind og
+kan søge i og skalere alle opskrifterne, men ikke tilføje, rette eller slette noget. Uden login er
+**+**, **blyanten**, **tandhjulet** og **Madplan** skjult. Madplanen kræver stadig login.
+
 ## Log ind på andre enheder
 
-Åbn appen, skriv adgangskoden, og tryk **Log ind**. På iPhone: Del-knappen → **Føj til hjemmeskærm**.
+Åbn appen, tryk på **Log ind for at tilføje og rette opskrifter** nederst på forsiden, skriv
+adgangskoden, og tryk **Log ind**. På iPhone: Del-knappen → **Føj til hjemmeskærm**.
 Safari og hver hjemmeskærms-app husker login hver for sig, så du logger ind én gang i hver.
 
 Under **Indstillinger** (tandhjulet) kan du:
 - **Skifte nøgler eller adgangskode**, fx når GitHub-nøglen udløber. De andre enheder bliver logget
   ind, til de logger ud; næste login kræver den nye adgangskode.
-- **Logge ud på denne enhed.** Det fjerner nøgler, opskrifter, billeder og madplan fra enheden.
+- **Logge ud på denne enhed.** Det fjerner nøgler, madplan og den gemte kopi af opskrifterne fra
+  enheden. Opskrifterne kan stadig ses uden login.
 
 **Glemt adgangskoden?** Tryk "Lav et nyt login med dine nøgler" på login-skærmen. Det kræver en
 GitHub-nøgle med adgang til de to repoer.
@@ -56,11 +67,12 @@ nulstil Todoist-nøglen. Lav nye nøgler, og opret et nyt login med en ny adgang
 Tryk på **+** på forsiden for at tilføje en opskrift, eller på **blyanten** i en opskrift for at
 rette eller slette den. Under titlen kan du tilføje, skifte eller fjerne et billede.
 
-Når du gemmer, laver appen et "commit" i `opskrifter-data`, og alle, der er logget ind, ser
-opskriften med det samme.
+Når du gemmer, laver appen et "commit" i `itsJulike/opskrifter`. Alle, der er logget ind, ser
+opskriften med det samme, og andre ser den efter højst ca. 5 minutter.
 
 **Backup:** Hele historikken ligger i GitHub. Gik noget galt, så åbn `recipes.json` i
-`itsJulike/opskrifter-data`, tryk på *History* og hent en ældre udgave.
+`itsJulike/opskrifter`, tryk på *History* og hent en ældre udgave. Historikken fra før opskrifterne
+blev offentlige ligger stadig i `itsJulike/opskrifter-data`.
 
 ## Hent opskrifter fra links, Instagram, TikTok, tekstfiler og billeder
 
@@ -87,12 +99,12 @@ Genvejen åbner formularen i Safari, så du skal være logget ind i Safari (ikke
 
 ## Ret direkte i filerne
 
-Du kan også rette `recipes.json` i `itsJulike/opskrifter-data` direkte på GitHub. `id` skal være unikt og uden mellemrum (bruges i
+Du kan også rette `recipes.json` i `itsJulike/opskrifter` direkte på GitHub. `id` skal være unikt og uden mellemrum (bruges i
 linket, fx `#/banankage`).
 
 Felter: `titel`, `kategori`, `tags`, `ovn`, `bagetid`, `bagetidMin` (tal, bruges til sortering),
 `udbytte`, `form`, `tilfoejet` (dato), `ingredienser`, `fremgangsmaade`, `noter`, `kilde` (link),
 `billede` (fx `billeder/banankage-1730000000000.jpg`).
 
-Hvis du ændrer i `app.js`, `login.js` eller `app.css`, så hæv tallet i `opskrifter-v17` øverst i `sw.js`
-(fx til `v18`), så telefonen henter den nye udgave.
+Hvis du ændrer i `app.js`, `login.js` eller `app.css`, så hæv tallet i `opskrifter-v18` øverst i `sw.js`
+(fx til `v19`), så telefonen henter den nye udgave.
