@@ -49,5 +49,5 @@ Todoist-nøglen giver adgang til hele din Todoist, men appen opretter kun opgave
 
 ## Ret i appen
 
-Hvis du ændrer i `app.js` eller `madplan.css` (eller `../opskrifter/login.js`), så hæv tallet i `madplan-v6` øverst i `sw.js`.
+Hvis du ændrer i `app.js` eller `madplan.css` (eller `../opskrifter/login.js`), så hæv tallet i `madplan-v7` øverst i `sw.js`.
 Appen bruger opskriftsappens `app.css` til farver og knapper, så den følger med, hvis udseendet ændres dér.

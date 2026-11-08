@@ -77,16 +77,18 @@ const Login = (() => {
 
   // Den krypterede login-fil. Kan hentes uden nøgle.
   async function fetchBundle() {
-    const res = await api(`/repos/${LOGIN_REPO}/contents/${BUNDLE}?ref=main`, { raw: true });
-    if (res.status === 404) return null;
-    if (res.ok) return res.json();
-    // GitHub tillader 60 opslag i timen uden nøgle; ellers prøves den direkte fil.
+    try {
+      const res = await api(`/repos/${LOGIN_REPO}/contents/${BUNDLE}?ref=main`, { raw: true });
+      if (res.status === 404) return null;
+      if (res.ok) return await res.json();
+    } catch { /* GitHubs API svarer ikke: prøv filen direkte */ }
+    // GitHub tillader 60 opslag i timen uden nøgle, og API'et kan være nede; så hentes filen direkte.
     try {
       const r = await fetch(`https://raw.githubusercontent.com/${LOGIN_REPO}/main/${BUNDLE}?t=${Date.now()}`, { cache: 'no-store' });
       if (r.status === 404) return null;
-      if (r.ok) return r.json();
+      if (r.ok) return await r.json();
     } catch { /* falder igennem */ }
-    throw fail(`GitHub svarede med fejl ${res.status}. Prøv igen om lidt.`);
+    throw fail('Kunne ikke nå GitHub. Tjek forbindelsen, eller prøv igen om lidt.', 'offline');
   }
 
   async function saveBundle(bundle, token) {
@@ -191,6 +193,7 @@ const Login = (() => {
       setStatus(status, 'Låser op…', 'busy');
       try {
         bundle = bundle || await fetchBundle();
+        if (bundle === null) return showSetup(app, { name, onDone, first: true });
         const secrets = await unseal(bundle, form.elements.password.value);
         useSecrets(secrets);
         setStatus(status, 'Logget ind ✓', 'good');

@@ -1,7 +1,7 @@
 // Gemmer appen offline. Svarer fra cachen med det samme og henter
 // en frisk udgave i baggrunden, så ændringer ses næste gang appen åbnes.
 // Opskrifterne ligger ikke her: de hentes fra det private repo og gemmes af appen selv.
-const CACHE = 'opskrifter-v14';
+const CACHE = 'opskrifter-v15';
 const SHELL = [
   './',
   'index.html',
