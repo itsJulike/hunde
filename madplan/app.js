@@ -829,7 +829,7 @@ function renderShopping() {
   const checked = checkedSet(key);
   const open = items.filter((x) => !checked.has(x.id));
   const done = items.filter((x) => checked.has(x.id));
-  const meals = mealsOf(w).filter((x) => x.d?.opskrift).length;
+  const meals = mealsOf(w).filter((x) => x.d?.opskrift && state.recipes.some((r) => r.id === x.d.opskrift)).length;
   const sent = sentMap(key);
   const unsent = open.filter((x) => sent[x.id] !== x.label);
   const target = load('todoistMaal', null);
@@ -908,6 +908,10 @@ function renderShopping() {
     e.preventDefault();
     const t = document.getElementById('addText').value.trim();
     if (!t) return;
+    if (getWeek(key).ekstra.some((x) => norm(x) === norm(t))) {
+      document.getElementById('addText').select();
+      return toast(`${t} står allerede på listen`);
+    }
     editWeek(key, (wk) => { wk.ekstra.push(t); });
     renderShopping();
     document.getElementById('addText').focus();

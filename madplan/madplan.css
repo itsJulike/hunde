@@ -79,7 +79,7 @@ body.locked { overflow: hidden; }
   padding: 14px max(16px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   animation: up .18s ease-out;
 }
-@keyframes up { from { transform: translateY(30px); opacity: 0.5; } }
+@keyframes up { from { transform: translateY(40px); } }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; }
 .sheet-head h2 { margin: 0; font: 800 1.3rem var(--head); letter-spacing: -0.02em; }
 .sheet-head h2 span { font: 500 0.9rem var(--sans); color: var(--muted); margin-left: 4px; }
