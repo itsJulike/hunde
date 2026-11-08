@@ -64,6 +64,7 @@ const icon = {
   plus: svg(20, '<path d="M12 5v14M5 12h14"/>', 'stroke-width="2.4"'),
   share: svg(20, '<path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>', 'stroke-width="2"'),
   todoist: svg(20, '<path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5 12 21l8-4.5"/><path d="M4 7.5 12 3l8 4.5-8 4.5Z"/>', 'stroke-width="2"'),
+  home: svg(16, '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/>', 'stroke-width="2.2"'),
   search: svg(18, '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>')
 };
 
@@ -101,16 +102,36 @@ function weekRange(key) {
     : `${a.getDate()}. ${MONTHS[a.getMonth()].slice(0, 3)}. – ${b.getDate()}. ${MONTHS[b.getMonth()].slice(0, 3)}.`;
 }
 const shortDate = (d) => `${d.getDate()}. ${MONTHS[d.getMonth()].slice(0, 3)}.`;
-const blankWeek = () => ({ dage: Array(7).fill(null), ekstra: [] });
-const getWeek = (key) => state.plan[key] || blankWeek();
-const isEmptyWeek = (w) => w.dage.every((d) => !d) && !w.ekstra.length;
+// En uge: dage = aftensmad, frokost = frokost på hjemmearbejdsdage, hjemme = hvilke dage der arbejdes hjemme.
+const blankWeek = () => ({ dage: Array(7).fill(null), frokost: Array(7).fill(null), hjemme: Array(7).fill(false), ekstra: [] });
+const getWeek = (key) => ({ ...blankWeek(), ...(state.plan[key] || {}) });
+const isEmptyWeek = (w) => w.dage.every((d) => !d) && w.frokost.every((d) => !d) && !w.hjemme.some(Boolean) && !w.ekstra.length;
+const MEAL_NAME = { aftensmad: 'Aftensmad', frokost: 'Frokost' };
+const slotOf = (w, m, i) => (m === 'frokost' ? w.frokost[i] : w.dage[i]);
+function setSlot(w, m, i, v) {
+  if (m === 'frokost') w.frokost[i] = v;
+  else w.dage[i] = v;
+}
+// Alle måltider, der er i brug: frokost kun på hjemmearbejdsdage.
+function mealsOf(w) {
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    if (w.hjemme?.[i]) out.push({ i, m: 'frokost', d: w.frokost?.[i] || null });
+    out.push({ i, m: 'aftensmad', d: w.dage[i] || null });
+  }
+  return out;
+}
 
-// Ændrer en uge og sørger for, at den bliver gemt.
+// Ændrer en uge og sørger for, at den bliver gemt. Tomme felter gemmes ikke, så plan.json holdes lille.
 function editWeek(key, change) {
   const w = structuredClone(getWeek(key));
   change(w);
   if (isEmptyWeek(w)) delete state.plan[key];
-  else state.plan[key] = w;
+  else {
+    if (w.frokost.every((d) => !d)) delete w.frokost;
+    if (!w.hjemme.some(Boolean)) delete w.hjemme;
+    state.plan[key] = w;
+  }
   changed(key);
 }
 
@@ -182,58 +203,112 @@ function fmtAmount(unit, lo, hi) {
   return u ? `${n} ${u}` : n;
 }
 
+/* ---------- Varegrupper og basisvarer ---------- */
+// Rækkefølgen er cirka den, man går rundt i et dansk supermarked.
+const AISLES = ['Frugt og grønt', 'Brød', 'Kød og fisk', 'Mejeri og æg', 'Kolonial', 'Frost', 'Drikkevarer', 'Husholdning', 'Andet'];
+// Søges på varens navn uden æøå (æ → ae, ø → oe, å → aa). Første regel, der passer, vinder,
+// så fx "kokosmælk" og "tørret timian" havner i kolonial, før "mælk" og "timian" fanges længere nede.
+const AISLE_RULES = [
+  ['Husholdning', /opvask|tabs\b|toiletpapir|koekkenrulle|saebe|vaskemiddel|skyllemiddel|affaldspose|alufolie|bagepapir|husholdningsfilm|frysepose|servietter|batterier|tandpasta|shampoo/],
+  ['Frost', /frost|frossen|frosne|\bis\b|isvafler/],
+  ['Kolonial', /hakkede tomater|flaaede tomater|tomatpure|passata|kokosmaelk|kikaerter|kidneyboenner|linser|bouillon|fond\b|toerret|toerrede|pulver|flager|krydderi|karry|kanel|paprika|spidskommen|oregano|muskat|nellike|kardemomme|laurbaer|\bpeber\b|\bsalt\b|vanilje|bagepulver|natron|majsstivelse|maizena/],
+  ['Kød og fisk', /koed|kylling|kalkun|bacon|skinke|poelse|medister|frikadelle|laks|torsk|rejer|\bsej\b|roedspaette|fisk|boef|steak|moerbrad|nakke|kotelet|culotte|entrecote|\blam\b|lammek|chorizo|pepperoni|salami|leverpostej/],
+  ['Brød', /broed|boller|\bbolle\b|toast|tortilla|wraps?\b|pita|naan|flutes|baguette|pizzadej/],
+  ['Mejeri og æg', /maelk|floede|smoer|ost\b|\bost|mozzarella|parmesan|feta|halloumi|yoghurt|skyr|creme fraiche|cremefraiche|ymer|\baeg|mascarpone|ricotta|kvark/],
+  ['Frugt og grønt', /loeg|kartof|gulerod|guleroed|tomat|agurk|salat|spinat|rucola|peberfrugt|squash|aubergine|broccoli|blomkaal|kaal|porre|selleri|svampe|champignon|ingefaer|chili|citron|lime|appelsin|aeble|banan|paere|baer|druer|avocado|mango|ananas|melon|persille|basilikum|koriander|dild|purloeg|timian|rosmarin|mynte|frugt|groent|majs|aerter|boenner|radise|roedbede|pastinak|fennikel|asparges|kiwi|blomme|nektarin|fersken/],
+  ['Drikkevarer', /\bvin\b|\boel\b|sodavand|juice|\bsaft\b|danskvand|kildevand/],
+  ['Kolonial', /mel\b|sukker|farin|flormelis|pasta|spaghetti|penne|fusilli|lasagne|nudler|\bris\b|risotto|couscous|bulgur|quinoa|havregryn|mysli|olie|eddike|soja|ketchup|sennep|mayo|remoulade|honning|sirup|kakao|chokolade|noedder|mandler|rosiner|daase|pure\b|gaer\b|kaffe|\bte\b|marmelade|syltetoej|pesto|oliven|kapers|salsa|chips|karamel|dumle|espresso|tacosauce|tacoskaller|kokos|sesam|cornflakes|knaekbroed|rasp/]
+];
+function aisleOf(name, unit = '') {
+  if (unit === 'dåse') return 'Kolonial';
+  const n = norm(name).normalize('NFD').replace(/[̀-ͯ]/g, ''); // puré → pure
+  for (const [a, re] of AISLE_RULES) if (re.test(n)) return a;
+  return 'Andet';
+}
+
+// Basisvarer, man næsten altid har. Kan rettes under Indstillinger og gælder kun på denne enhed.
+const DEFAULT_BASICS = ['salt', 'peber', 'flagesalt', 'vand', 'olie', 'olivenolie', 'rapsolie'];
+const basics = () => load('basisvarer', DEFAULT_BASICS);
+function isBasic(name) {
+  const n = ' ' + norm(name).replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+  return basics().some((b) => {
+    const w = norm(b).replace(/[^a-z0-9]+/g, ' ').trim();
+    return w && n.includes(' ' + w + ' ');
+  });
+}
+
 // Samler ugens ingredienser. Samme vare fra flere retter lægges sammen, hvis enheden passer.
 function shoppingList(key) {
   const items = new Map();
-  getWeek(key).dage.forEach((d, i) => {
+  const w = getWeek(key);
+  for (const { i, m, d } of mealsOf(w)) {
     const r = d?.opskrift && state.recipes.find((x) => x.id === d.opskrift);
-    if (!r) return;
+    if (!r) continue;
     for (const line of r.ingredienser) {
       if (/:\s*$/.test(line)) continue; // overskrifter som "Fyld:"
       const p = parseIngredient(line);
       if (!p.name) continue;
       const k = norm(p.name);
-      if (!items.has(k)) items.set(k, { key: k, name: p.name, amounts: new Map(), loose: false, from: [] });
+      if (!items.has(k)) items.set(k, { key: k, name: p.name, unit: p.unit, amounts: new Map(), from: [] });
       const it = items.get(k);
       if (p.lo) {
         const a = it.amounts.get(p.unit) || { lo: 0, hi: 0 };
         a.lo += p.lo * (d.x || 1);
         a.hi += p.hi * (d.x || 1);
         it.amounts.set(p.unit, a);
-      } else it.loose = true;
-      const who = `${r.titel} (${DAYS[i].slice(0, 3).toLowerCase()})`;
+      }
+      const who = `${r.titel} (${DAYS[i].slice(0, 3).toLowerCase()}${m === 'frokost' ? ' frokost' : ''})`;
       if (!it.from.includes(who)) it.from.push(who);
     }
-  });
+  }
   return [...items.values()]
     .map((it) => {
       const amount = [...it.amounts].map(([u, a]) => fmtAmount(u, a.lo, a.hi)).join(' + ');
-      return { key: it.key, label: amount ? `${amount} ${it.name}` : it.name.charAt(0).toUpperCase() + it.name.slice(1), from: it.from, sortName: it.name };
+      return {
+        key: it.key,
+        label: amount ? `${amount} ${it.name}` : it.name.charAt(0).toUpperCase() + it.name.slice(1),
+        from: it.from,
+        sortName: it.name,
+        aisle: aisleOf(it.name, it.unit),
+        basic: isBasic(it.name)
+      };
     })
     .sort((a, b) => da.compare(a.sortName, b.sortName));
 }
 
+// Deler varer op i varegrupper i butikkens rækkefølge: [[gruppe, varer], …]
+function byAisle(items) {
+  return AISLES.map((a) => [a, items.filter((x) => x.aisle === a)]).filter(([, list]) => list.length);
+}
+
 /* ---------- Forslag ---------- */
 const categories = () => [...new Set(state.recipes.map((r) => r.kategori || 'Andet'))].sort(da.compare);
-function allowedCats() {
+// Kategorier, der som udgangspunkt foreslås til frokost.
+const LUNCH = /frokost|salat|sandwich|suppe|supper|smørrebrød|wrap|madpakke|rester/i;
+function allowedCats(m = 'aftensmad') {
   const all = categories();
-  const chosen = load('forslagKategorier', null);
+  const chosen = load(m === 'frokost' ? 'frokostKategorier' : 'forslagKategorier', null);
   if (Array.isArray(chosen)) return new Set(chosen.filter((c) => all.includes(c)));
   const dinner = all.filter((c) => !NOT_DINNER.includes(c));
+  if (m === 'frokost') {
+    const lunch = all.filter((c) => LUNCH.test(c));
+    if (lunch.length) return new Set(lunch);
+  }
   return new Set(dinner.length ? dinner : all);
 }
 
 // Vælger en opskrift: først dem, der ikke er brugt i ugen, derefter dem, der er længst siden man har brugt.
-function suggest(key, w, skip = []) {
-  const cats = allowedCats();
+function suggest(key, w, skip = [], m = 'aftensmad') {
+  const cats = allowedCats(m);
   const pool = state.recipes.filter((r) => cats.has(r.kategori || 'Andet') && !skip.includes(r.id));
   if (!pool.length) return null;
   const last = {};
   for (const [k, wk] of Object.entries(state.plan)) {
     if (k >= key) continue;
-    for (const d of wk.dage) if (d?.opskrift && (last[d.opskrift] || '') < k) last[d.opskrift] = k;
+    for (const d of [...(wk.dage || []), ...(wk.frokost || [])]) if (d?.opskrift && (last[d.opskrift] || '') < k) last[d.opskrift] = k;
   }
-  const inWeek = (id) => w.dage.filter((d) => d?.opskrift === id).length;
+  const used = mealsOf(w).map((x) => x.d?.opskrift).filter(Boolean);
+  const inWeek = (id) => used.filter((x) => x === id).length;
   const ranked = pool
     .map((r) => ({ r, a: inWeek(r.id), b: last[r.id] || '', c: Math.random() }))
     .sort((x, y) => x.a - y.a || (x.b < y.b ? -1 : x.b > y.b ? 1 : 0) || x.c - y.c);
@@ -431,23 +506,45 @@ async function sendToTodoist(key, items) {
   const target = load('todoistMaal', null);
   if (!todoistKey() || !target) throw fail('Tilføj din Todoist-nøgle og vælg et projekt under <a href="#/indstillinger">Indstillinger</a>.', 'nokey');
   const sent = sentMap(key);
+  const list = [...items].sort((a, b) => AISLES.indexOf(a.aisle) - AISLES.indexOf(b.aisle));
+
+  // Med varegrupper lægges varerne i sektioner i projektet, fx "Frugt og grønt". Manglende sektioner oprettes.
+  let sectionFor = () => target.sektion || '';
+  if (load('todoistGrupper', true)) {
+    const { sections } = await todoistProjects();
+    const ids = new Map(sections.filter((s) => s.project_id === target.projekt).map((s) => [norm(s.name), s.id]));
+    const need = AISLES.filter((a) => list.some((x) => x.aisle === a) && !ids.has(norm(a)));
+    if (need.length) {
+      const cmds = need.map((a) => ({ type: 'section_add', uuid: crypto.randomUUID(), temp_id: crypto.randomUUID(), args: { name: a, project_id: target.projekt } }));
+      const d = await todoistSync({ commands: JSON.stringify(cmds) });
+      cmds.forEach((c, n) => {
+        const id = d.temp_id_mapping?.[c.temp_id];
+        if (d.sync_status?.[c.uuid] === 'ok' && id) ids.set(norm(need[n]), id);
+      });
+    }
+    sectionFor = (x) => ids.get(norm(x.aisle)) || '';
+  }
+
   let ok = 0;
   let failed = 0;
-  for (let i = 0; i < items.length; i += 50) {
-    const chunk = items.slice(i, i + 50).map((x) => ({
-      x,
-      cmd: {
-        type: 'item_add',
-        uuid: crypto.randomUUID(),
-        temp_id: crypto.randomUUID(),
-        args: {
-          content: x.label,
-          description: [x.from.length ? 'Til ' + x.from.join(', ') : '', `Madplan uge ${weekNo(key)}`].filter(Boolean).join(' · '),
-          project_id: target.projekt,
-          ...(target.sektion && { section_id: target.sektion })
+  for (let i = 0; i < list.length; i += 50) {
+    const chunk = list.slice(i, i + 50).map((x) => {
+      const section = sectionFor(x);
+      return {
+        x,
+        cmd: {
+          type: 'item_add',
+          uuid: crypto.randomUUID(),
+          temp_id: crypto.randomUUID(),
+          args: {
+            content: x.label,
+            description: [x.from.length ? 'Til ' + x.from.join(', ') : '', `Madplan uge ${weekNo(key)}`].filter(Boolean).join(' · '),
+            project_id: target.projekt,
+            ...(section && { section_id: section })
+          }
         }
-      }
-    }));
+      };
+    });
     const d = await todoistSync({ commands: JSON.stringify(chunk.map((c) => c.cmd)) });
     for (const { x, cmd } of chunk) {
       if (d.sync_status?.[cmd.uuid] === 'ok') { sent[x.id] = x.label; ok++; } else failed++;
@@ -458,14 +555,15 @@ async function sendToTodoist(key, items) {
 }
 
 /* ---------- Ugeplan ---------- */
-function mealHTML(d, i) {
+function mealHTML(d, i, m) {
+  const at = `data-i="${i}" data-m="${m}"`;
   if (!d) {
-    return `<button class="emptyday" type="button" data-act="pick" data-i="${i}">${icon.plus}<span>Vælg ret</span></button>`;
+    return `<button class="emptyday" type="button" data-act="pick" ${at}>${icon.plus}<span>Vælg ${m === 'frokost' ? 'frokost' : 'ret'}</span></button>`;
   }
   const actions = (shuffle) => `<div class="meal-actions">
-      ${shuffle ? `<button type="button" class="mini" data-act="shuffle" data-i="${i}" aria-label="Foreslå en anden ret">${icon.shuffle}</button>` : ''}
-      <button type="button" class="mini" data-act="pick" data-i="${i}" aria-label="Vælg en anden ret">${icon.swap}</button>
-      <button type="button" class="mini" data-act="clear" data-i="${i}" aria-label="Fjern">${icon.x}</button>
+      ${shuffle ? `<button type="button" class="mini" data-act="shuffle" ${at} aria-label="Foreslå en anden ret">${icon.shuffle}</button>` : ''}
+      <button type="button" class="mini" data-act="pick" ${at} aria-label="Vælg en anden ret">${icon.swap}</button>
+      <button type="button" class="mini" data-act="clear" ${at} aria-label="Fjern">${icon.x}</button>
     </div>`;
   if (d.tekst) {
     return `<div class="meal free"><p class="free-text">${esc(d.tekst)}</p>${actions(false)}</div>`;
@@ -482,20 +580,42 @@ function mealHTML(d, i) {
         <a href="${href}"><h3>${esc(r.titel)}</h3></a>
         <p class="meta"><span class="cat-label">${esc(r.kategori || 'Andet')}</span>${r.udbytte ? scaledYield(r.udbytte, f) : ''}</p>
         <label class="portion"><span>Mængde</span>
-          <select data-act="x" data-i="${i}">${FACTORS.map((x) => `<option value="${x}" ${x === f ? 'selected' : ''}>${fmtQty(x)}×</option>`).join('')}</select>
+          <select data-act="x" ${at}>${FACTORS.map((x) => `<option value="${x}" ${x === f ? 'selected' : ''}>${fmtQty(x)}×</option>`).join('')}</select>
         </label>
       </div>
       ${actions(true)}
     </div>`;
 }
 
+function dayHTML(w, i, key, today) {
+  const home = w.hjemme[i];
+  const slots = home
+    ? `<div class="slot"><span class="slot-label">Frokost</span>${mealHTML(w.frokost[i], i, 'frokost')}</div>
+       <div class="slot"><span class="slot-label">Aftensmad</span>${mealHTML(w.dage[i], i, 'aftensmad')}</div>`
+    : mealHTML(w.dage[i], i, 'aftensmad');
+  return `
+    <li class="day${i === today ? ' today' : ''}${home ? ' home' : ''}">
+      <div class="dayhead">
+        <b>${DAYS[i]}</b><span>${i === today ? 'I dag' : shortDate(dayDate(key, i))}</span>
+        <button type="button" class="home-toggle" data-act="home" data-i="${i}" aria-pressed="${home}" aria-label="Hjemmearbejde ${DAYS[i].toLowerCase()}">${icon.home}<span>Hjemme</span></button>
+      </div>
+      ${slots}
+    </li>`;
+}
+
+const catChips = (id, cats, allowed) => `<div class="chips wrapchips" id="${id}">
+    ${cats.map((c) => `<button type="button" class="chip cat ${tone({ kategori: c })}" aria-pressed="${allowed.has(c)}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+  </div>`;
+
 function renderWeek() {
   const key = state.week;
   const w = getWeek(key);
   const today = weekKey(new Date()) === key ? (new Date().getDay() + 6) % 7 : -1;
-  const planned = w.dage.filter(Boolean).length;
+  const slots = mealsOf(w);
+  const planned = slots.filter((x) => x.d).length;
+  const empty = slots.length - planned;
+  const anyPlanned = w.dage.some(Boolean) || w.frokost.some(Boolean);
   const cats = categories();
-  const allowed = allowedCats();
   document.title = `Madplan uge ${weekNo(key)}`;
   app.innerHTML = `
     <div class="wrap">
@@ -517,25 +637,23 @@ function renderWeek() {
       </nav>
       <p class="sync" id="sync" role="status" hidden></p>
       ${state.recipes.length ? '' : '<div class="empty"><strong>Ingen opskrifter endnu</strong>Tilføj opskrifter i opskriftsappen, så kan de bruges her.</div>'}
+      <p class="hint week-hint">Tryk på <b>Hjemme</b> de dage, du arbejder hjemme, så kommer der frokost på.</p>
       <ol class="days">
-        ${w.dage.map((d, i) => `
-          <li class="day${i === today ? ' today' : ''}">
-            <div class="dayhead"><b>${DAYS[i]}</b><span>${i === today ? 'I dag' : shortDate(dayDate(key, i))}</span></div>
-            ${mealHTML(d, i)}
-          </li>`).join('')}
+        ${w.dage.map((_, i) => dayHTML(w, i, key, today)).join('')}
       </ol>
       <div class="plan-actions">
-        <button class="btn primary" type="button" id="fill" ${planned === 7 || !state.recipes.length ? 'disabled' : ''}>${icon.shuffle}<span>${planned ? 'Foreslå retter til de tomme dage' : 'Foreslå en hel uge'}</span></button>
+        <button class="btn primary" type="button" id="fill" ${!empty || !state.recipes.length ? 'disabled' : ''}>${icon.shuffle}<span>${planned ? 'Foreslå retter til de tomme pladser' : 'Foreslå en hel uge'}</span></button>
         <a class="btn" href="#/indkoeb/${key}">${icon.cart}<span>Indkøbsliste</span></a>
       </div>
       <details class="prefs" ${load('forslagAaben', false) ? 'open' : ''}>
         <summary>Forslag vælges fra</summary>
         <p class="hint">Tryk for at vælge kategorier til og fra. Kager og andet bagværk er fravalgt fra start.</p>
-        <div class="chips wrapchips" id="cats">
-          ${cats.map((c) => `<button type="button" class="chip cat ${tone({ kategori: c })}" aria-pressed="${allowed.has(c)}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
-        </div>
+        <h4>Aftensmad</h4>
+        ${catChips('cats', cats, allowedCats('aftensmad'))}
+        <h4>Frokost</h4>
+        ${catChips('lunchCats', cats, allowedCats('frokost'))}
       </details>
-      ${planned ? '<button class="btn danger" type="button" id="clearWeek">Ryd ugen</button>' : ''}
+      ${anyPlanned ? '<button class="btn danger" type="button" id="clearWeek">Ryd ugen</button>' : ''}
     </div>`;
   paintSync(document.getElementById('sync'));
 
@@ -549,47 +667,50 @@ function renderWeek() {
     const b = e.target.closest('button[data-act]');
     if (!b) return;
     const i = Number(b.dataset.i);
-    if (b.dataset.act === 'pick') return openPicker(key, i);
-    if (b.dataset.act === 'clear') editWeek(key, (wk) => { wk.dage[i] = null; });
+    const m = b.dataset.m || 'aftensmad';
+    if (b.dataset.act === 'home') editWeek(key, (wk) => { wk.hjemme[i] = !wk.hjemme[i]; });
+    if (b.dataset.act === 'pick') return openPicker(key, i, m);
+    if (b.dataset.act === 'clear') editWeek(key, (wk) => { setSlot(wk, m, i, null); });
     if (b.dataset.act === 'shuffle') {
-      const cur = getWeek(key).dage[i];
-      const r = suggest(key, getWeek(key), cur?.opskrift ? [cur.opskrift] : []);
+      const cur = slotOf(getWeek(key), m, i);
+      const r = suggest(key, getWeek(key), cur?.opskrift ? [cur.opskrift] : [], m);
       if (!r) return toast(state.recipes.length > 1 ? 'Ingen andre opskrifter i de valgte kategorier' : 'Der er kun én opskrift');
-      editWeek(key, (wk) => { wk.dage[i] = { opskrift: r.id, x: cur?.x || 1 }; });
+      editWeek(key, (wk) => { setSlot(wk, m, i, { opskrift: r.id, x: cur?.x || 1 }); });
     }
     renderWeek();
   });
   app.querySelector('.days').addEventListener('change', (e) => {
     const s = e.target.closest('select[data-act="x"]');
     if (!s) return;
-    editWeek(key, (wk) => { wk.dage[Number(s.dataset.i)].x = Number(s.value); });
+    editWeek(key, (wk) => { slotOf(wk, s.dataset.m, Number(s.dataset.i)).x = Number(s.value); });
     renderWeek();
   });
 
   document.getElementById('fill').addEventListener('click', () => {
-    if (!allowedCats().size) return toast('Vælg mindst én kategori under "Forslag vælges fra"');
     let n = 0;
     editWeek(key, (wk) => {
-      wk.dage.forEach((d, i) => {
-        if (d) return;
-        const r = suggest(key, wk);
-        if (r) { wk.dage[i] = { opskrift: r.id, x: 1 }; n++; }
-      });
+      for (const { i, m, d } of mealsOf(wk)) {
+        if (d) continue;
+        const r = suggest(key, wk, [], m);
+        if (r) { setSlot(wk, m, i, { opskrift: r.id, x: 1 }); n++; }
+      }
     });
     renderWeek();
-    if (!n) toast('Ingen opskrifter i de valgte kategorier');
+    if (!n) toast('Ingen opskrifter i de valgte kategorier. Vælg nogle under "Forslag vælges fra".');
   });
 
   const details = app.querySelector('.prefs');
   details.addEventListener('toggle', () => save('forslagAaben', details.open));
-  document.getElementById('cats').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-cat]');
-    if (!b) return;
-    const set = allowedCats();
-    set.has(b.dataset.cat) ? set.delete(b.dataset.cat) : set.add(b.dataset.cat);
-    save('forslagKategorier', [...set]);
-    b.setAttribute('aria-pressed', set.has(b.dataset.cat));
-  });
+  for (const [id, m, storeKey] of [['cats', 'aftensmad', 'forslagKategorier'], ['lunchCats', 'frokost', 'frokostKategorier']]) {
+    document.getElementById(id).addEventListener('click', (e) => {
+      const b = e.target.closest('[data-cat]');
+      if (!b) return;
+      const set = allowedCats(m);
+      set.has(b.dataset.cat) ? set.delete(b.dataset.cat) : set.add(b.dataset.cat);
+      save(storeKey, [...set]);
+      b.setAttribute('aria-pressed', set.has(b.dataset.cat));
+    });
+  }
 
   const clr = document.getElementById('clearWeek');
   clr?.addEventListener('click', () => {
@@ -599,29 +720,31 @@ function renderWeek() {
       setTimeout(() => { clr.classList.remove('armed'); clr.textContent = 'Ryd ugen'; }, 3000);
       return;
     }
-    editWeek(key, (wk) => { wk.dage = Array(7).fill(null); });
+    editWeek(key, (wk) => { wk.dage = Array(7).fill(null); wk.frokost = Array(7).fill(null); });
     renderWeek();
   });
 }
 
 /* ---------- Vælg en ret ---------- */
 let pickerOpen = false;
-function openPicker(key, i) {
+function openPicker(key, i, m = 'aftensmad') {
   const w = getWeek(key);
-  const cur = w.dage[i];
+  const cur = slotOf(w, m, i);
   const el = document.createElement('div');
   el.className = 'sheet-wrap';
+  const quick = m === 'frokost' ? ['Rester', 'Madpakke', 'Rugbrød'] : ['Rester', 'Pizza ude', 'Takeaway'];
   el.innerHTML = `
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="Vælg ret til ${DAYS[i].toLowerCase()}">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Vælg ${MEAL_NAME[m].toLowerCase()} til ${DAYS[i].toLowerCase()}">
       <div class="sheet-head">
-        <h2>${DAYS[i]} <span>${shortDate(dayDate(key, i))}</span></h2>
+        <h2>${DAYS[i]} <span>${MEAL_NAME[m].toLowerCase()} · ${shortDate(dayDate(key, i))}</span></h2>
         <button type="button" class="iconbtn" data-close aria-label="Luk">${icon.x}</button>
       </div>
       <label class="search">${icon.search}<input id="pq" type="search" placeholder="Søg efter en ret" autocomplete="off" enterkeyhint="search" aria-label="Søg"></label>
       <form class="free-form" id="freeForm">
-        <input id="freeText" placeholder="Eller skriv selv, fx Rester eller Pizza ude" value="${esc(cur?.tekst || '')}" maxlength="80" enterkeyhint="done">
+        <input id="freeText" placeholder="Eller skriv selv" value="${esc(cur?.tekst || '')}" maxlength="80" enterkeyhint="done">
         <button class="btn" type="submit">Brug</button>
       </form>
+      <div class="chips quick">${quick.map((q) => `<button type="button" class="chip tag" data-quick="${esc(q)}">${esc(q)}</button>`).join('')}</div>
       <ul class="pick-list" id="pickList"></ul>
     </div>`;
   document.body.appendChild(el);
@@ -637,7 +760,8 @@ function openPicker(key, i) {
   document.addEventListener('keydown', onKey);
   el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-close]')) close(); });
 
-  const usedThisWeek = new Set(w.dage.map((d) => d?.opskrift).filter(Boolean));
+  const usedThisWeek = new Set(mealsOf(w).map((x) => x.d?.opskrift).filter(Boolean));
+  const fits = allowedCats(m);
   const list = el.querySelector('#pickList');
   const paint = () => {
     const q = norm(el.querySelector('#pq').value).split(/\s+/).filter(Boolean);
@@ -646,7 +770,8 @@ function openPicker(key, i) {
         const hay = norm([r.titel, r.kategori, ...(r.tags || []), ...(r.ingredienser || [])].join(' '));
         return q.every((x) => hay.includes(x));
       })
-      .sort((a, b) => da.compare(a.titel, b.titel));
+      // Retter, der passer til måltidet, står øverst.
+      .sort((a, b) => (fits.has(b.kategori || 'Andet') ? 1 : 0) - (fits.has(a.kategori || 'Andet') ? 1 : 0) || da.compare(a.titel, b.titel));
     list.innerHTML = hits.length
       ? hits.map((r) => `
         <li><button type="button" class="pick ${tone(r)}${cur?.opskrift === r.id ? ' current' : ''}" data-id="${esc(r.id)}">
@@ -657,19 +782,23 @@ function openPicker(key, i) {
   };
   paint();
   el.querySelector('#pq').addEventListener('input', paint);
-  list.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-id]');
-    if (!b) return;
-    editWeek(key, (wk) => { wk.dage[i] = { opskrift: b.dataset.id, x: cur?.x || 1 }; });
+  const done = (v) => {
+    editWeek(key, (wk) => { setSlot(wk, m, i, v); });
     close();
     renderWeek();
+  };
+  list.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-id]');
+    if (b) done({ opskrift: b.dataset.id, x: cur?.x || 1 });
+  });
+  el.querySelector('.quick').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-quick]');
+    if (b) done({ tekst: b.dataset.quick });
   });
   el.querySelector('#freeForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const t = el.querySelector('#freeText').value.trim();
-    editWeek(key, (wk) => { wk.dage[i] = t ? { tekst: t } : null; });
-    close();
-    renderWeek();
+    done(t ? { tekst: t } : null);
   });
 }
 
@@ -689,18 +818,21 @@ function saveChecked(key, set) {
 function renderShopping() {
   const key = state.week;
   const w = getWeek(key);
-  const items = [
+  const all = [
     ...shoppingList(key).map((x) => ({ ...x, id: 'i:' + x.key })),
-    ...w.ekstra.map((t, n) => ({ id: 'e:' + norm(t), label: t, from: [], extra: n }))
+    ...w.ekstra.map((t, n) => ({ id: 'e:' + norm(t), label: t, from: [], extra: n, aisle: aisleOf(t), basic: false }))
   ];
+  const items = all.filter((x) => !x.basic);
+  const basicItems = all.filter((x) => x.basic);
   const checked = checkedSet(key);
   const open = items.filter((x) => !checked.has(x.id));
   const done = items.filter((x) => checked.has(x.id));
-  const meals = w.dage.filter((d) => d?.opskrift).length;
+  const meals = mealsOf(w).filter((x) => x.d?.opskrift).length;
   const sent = sentMap(key);
   const unsent = open.filter((x) => sent[x.id] !== x.label);
   const target = load('todoistMaal', null);
   const hasTodoist = todoistKey() && target;
+  const grouped = load('todoistGrupper', true);
   const row = (x) => {
     const notes = [];
     if (x.from.length) notes.push(esc(x.from.join(', ')));
@@ -713,7 +845,7 @@ function renderShopping() {
       ${x.extra !== undefined ? `<button type="button" class="mini" data-del="${x.extra}" aria-label="Fjern ${esc(x.label)}">${icon.x}</button>` : ''}
     </label></li>`;
   };
-  const where = target ? esc(target.projektNavn) + (target.sektionNavn ? ' › ' + esc(target.sektionNavn) : '') : '';
+  const where = target ? esc(target.projektNavn) + (!grouped && target.sektionNavn ? ' › ' + esc(target.sektionNavn) : '') + (grouped ? ', delt op i varegrupper' : '') : '';
   let todoistBtn = '';
   if (open.length) {
     if (!hasTodoist) {
@@ -723,7 +855,7 @@ function renderShopping() {
       todoistBtn = `<button class="btn todoist" type="button" id="todoist">${icon.todoist}<span>Send ${unsent.length} ${unsent.length === 1 ? 'vare' : 'varer'} til Todoist</span></button>
         <p class="hint todoist-hint">Lander i ${where}.${unsent.length < open.length ? ' Varer, der allerede er sendt, kommer ikke med igen.' : ''}${unsent.some((x) => sent[x.id]) ? ' Varer med ændret mængde sendes som nye opgaver, så slet de gamle i Todoist.' : ''}</p>`;
     } else {
-      todoistBtn = `<p class="hint todoist-hint">Alle varer er sendt til ${where} i Todoist. <button class="linkbtn" type="button" id="todoistAgain">Send alle igen</button></p>`;
+      todoistBtn = `<p class="hint todoist-hint">Alle varer er sendt til ${esc(target.projektNavn)} i Todoist. <button class="linkbtn" type="button" id="todoistAgain">Send alle igen</button></p>`;
     }
   }
   document.title = `Indkøb uge ${weekNo(key)}`;
@@ -745,10 +877,15 @@ function renderShopping() {
       </form>
       ${todoistBtn}
       <p class="imp-status" id="tdStatus" role="status" hidden></p>
-      ${items.length ? '' : '<div class="empty"><strong>Listen er tom</strong>Vælg retter til ugen, så kommer ingredienserne her.</div>'}
-      ${open.length ? `<ul class="ingredients shop">${open.map(row).join('')}</ul>` : ''}
+      ${all.length ? '' : '<div class="empty"><strong>Listen er tom</strong>Vælg retter til ugen, så kommer ingredienserne her.</div>'}
+      ${byAisle(open).map(([a, list]) => `<h3 class="aisle">${esc(a)}</h3><ul class="ingredients shop">${list.map(row).join('')}</ul>`).join('')}
       ${done.length ? `<div class="section-head"><h2>I kurven</h2><button class="linkbtn" type="button" id="uncheck">Fjern flueben</button></div>
         <ul class="ingredients shop done-list">${done.map(row).join('')}</ul>` : ''}
+      ${basicItems.length ? `<details class="basics">
+          <summary>Basisvarer, du nok har (${basicItems.length})</summary>
+          <ul>${basicItems.map((x) => `<li>${esc(x.label)}${x.from.length ? `<small>${esc(x.from.join(', '))}</small>` : ''}</li>`).join('')}</ul>
+          <p class="hint">De er ikke med på listen eller i Todoist. <a href="#/indstillinger">Ret basisvarer</a></p>
+        </details>` : ''}
       ${items.length ? '<p class="hint shop-hint">Mængderne er lagt sammen fra ugens retter og ganget med den valgte mængde. Tjek selv, hvad du har i forvejen.</p>' : ''}
     </div>`;
   paintSync(document.getElementById('sync'));
@@ -801,7 +938,7 @@ function renderShopping() {
   document.getElementById('todoistAgain')?.addEventListener('click', () => { saveSent(key, {}); send(open); });
 
   document.getElementById('share').addEventListener('click', async () => {
-    const text = `Indkøb uge ${weekNo(key)}\n` + open.map((x) => '• ' + x.label).join('\n');
+    const text = `Indkøb uge ${weekNo(key)}\n` + byAisle(open).map(([a, list]) => `\n${a}\n` + list.map((x) => '• ' + x.label).join('\n')).join('\n');
     try {
       if (navigator.share) await navigator.share({ title: `Indkøb uge ${weekNo(key)}`, text });
       else { await navigator.clipboard.writeText(text); toast('Listen er kopieret'); }
@@ -830,8 +967,12 @@ function renderSettings() {
           <input name="todoist" type="password" value="${esc(todoistKey())}" placeholder="API-token fra Todoist" autocomplete="off"></label>
         <label class="field" id="targetField" ${todoistKey() ? '' : 'hidden'}><span>Send varerne til</span>
           <select name="target" id="target">${saved ? `<option value="${esc(saved.projekt + '|' + saved.sektion)}">${esc(saved.projektNavn + (saved.sektionNavn ? ' › ' + saved.sektionNavn : ''))}</option>` : '<option value="">Henter projekter…</option>'}</select></label>
+        <label class="check" id="groupField" ${todoistKey() ? '' : 'hidden'}><input type="checkbox" name="grupper" ${load('todoistGrupper', true) ? 'checked' : ''}>
+          <span>Del varerne op i sektioner efter varegruppe<small>Fx "Frugt og grønt" og "Kød og fisk" i det valgte projekt. Sektioner, der mangler, bliver oprettet.</small></span></label>
         <p class="imp-status" id="setStatus" role="status" hidden></p>
         <button class="btn primary" type="submit">Gem og test</button>
+        <label class="field basics-field"><span>Basisvarer</span><small>Varer, du næsten altid har. De vises ikke på indkøbslisten og sendes ikke til Todoist. Én pr. linje. Gælder kun på denne enhed.</small>
+          <textarea name="basis" rows="6">${esc(basics().join('\n'))}</textarea></label>
         <button class="btn danger" type="button" id="forget">Glem nøglerne på denne enhed</button>
       </form>
     </div>`;
@@ -848,14 +989,29 @@ function renderSettings() {
   const fillTargets = (data, current) => {
     lists = data;
     const opts = [];
+    const grouped = form.elements.grupper.checked;
     for (const p of data.projects) {
       opts.push([p.id + '|', p.name]);
-      for (const s of data.sections.filter((x) => x.project_id === p.id)) opts.push([p.id + '|' + s.id, `${p.name} › ${s.name}`]);
+      if (!grouped) for (const s of data.sections.filter((x) => x.project_id === p.id)) opts.push([p.id + '|' + s.id, `${p.name} › ${s.name}`]);
     }
-    const cur = current ? current.projekt + '|' + current.sektion : '';
+    const cur = current ? current.projekt + '|' + (grouped ? '' : current.sektion) : '';
     select.innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
     field.hidden = false;
+    document.getElementById('groupField').hidden = false;
   };
+  form.elements.grupper.addEventListener('change', () => {
+    save('todoistGrupper', form.elements.grupper.checked);
+    if (lists) {
+      fillTargets(lists, chosenTarget() || load('todoistMaal', null));
+      const t = chosenTarget();
+      if (t) save('todoistMaal', t);
+    }
+  });
+  form.elements.basis.addEventListener('change', () => {
+    const list = form.elements.basis.value.split(/\n/).map((x) => x.trim()).filter(Boolean);
+    save('basisvarer', list);
+    setStatus(`Basisvarer gemt (${list.length}).`, 'good');
+  });
   const chosenTarget = () => {
     if (!lists || !select.value) return null;
     const [pid, sid] = select.value.split('|');
@@ -885,7 +1041,7 @@ function renderSettings() {
     const td = form.elements.todoist.value.trim();
     save('githubNoegle', gh);
     save('todoistNoegle', td);
-    if (!td) { save('todoistMaal', null); field.hidden = true; }
+    if (!td) { save('todoistMaal', null); field.hidden = true; document.getElementById('groupField').hidden = true; }
     if (!gh && !td) return setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
     setStatus('Tester nøglerne…', 'busy');
     const out = [];
@@ -919,6 +1075,7 @@ function renderSettings() {
     save('todoistMaal', null);
     form.elements.github.value = form.elements.todoist.value = '';
     field.hidden = true;
+    document.getElementById('groupField').hidden = true;
     setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
   });
 }

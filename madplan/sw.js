@@ -1,6 +1,6 @@
 // Gemmer madplanen offline. Svarer fra cachen med det samme og henter en frisk udgave i baggrunden.
 // Planen og opskrifterne hentes altid friske, når der er net.
-const CACHE = 'madplan-v2';
+const CACHE = 'madplan-v3';
 const SHELL = [
   './',
   'index.html',
@@ -10,6 +10,8 @@ const SHELL = [
   'ikoner/icon-192.png',
   'ikoner/apple-touch-icon.png',
   '../opskrifter/app.css',
+  '../opskrifter/fonts/exo.woff2',
+  '../opskrifter/fonts/inter.woff2',
   '../opskrifter/recipes.json'
 ];
 

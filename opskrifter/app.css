@@ -1,3 +1,7 @@
+/* Skrifter: Exo til overskrifter, Inter til brødtekst. Ligger i fonts/, så de også virker offline (SIL Open Font License). */
+@font-face { font-family: "Exo"; src: url("fonts/exo.woff2") format("woff2"); font-weight: 500 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/inter.woff2") format("woff2"); font-weight: 400 700; font-style: normal; font-display: swap; }
+
 /* Nordisk: lys grå baggrund, hvide kort, næsten sort tekst, skovgrøn accent og en farve pr. kategori. */
 :root {
   --bg: #f2f4f0;
@@ -18,8 +22,8 @@
   --t5-bg: #ffd3df; --t5-fg: #a11f4d;
   --t6-bg: #c4eee5; --t6-fg: #0a6454;
 
-  --head: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --head: "Exo", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   color-scheme: light dark;
 }
 

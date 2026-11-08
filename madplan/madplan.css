@@ -130,3 +130,34 @@ body.locked { overflow: hidden; }
   .btn.todoist { background: #c23f33; border-color: #c23f33; }
   .shop .td { color: #ff8f84; }
 }
+
+/* Hjemmearbejde og frokost */
+.dayhead { gap: 8px; }
+.dayhead > span { margin-left: auto; }
+.home-toggle {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px;
+  background: transparent; color: var(--muted); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+}
+.home-toggle[aria-pressed="true"] { background: var(--t4-bg); border-color: transparent; color: var(--t4-fg); }
+.day.home { border-color: var(--t4-fg); }
+.day.today.home { border-color: var(--accent); }
+.slot + .slot { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.slot-label { display: block; margin-bottom: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.week-hint { margin: 12px 0 0; }
+.prefs h4 { margin: 12px 0 6px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.quick { flex-wrap: wrap; overflow: visible; padding: 0; margin: -2px 0 0; }
+
+/* Varegrupper og basisvarer */
+.aisle { margin: 18px 0 6px; font: 800 0.95rem var(--head); letter-spacing: -0.01em; color: var(--accent); }
+.basics { margin-top: 18px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.basics summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
+.basics ul { margin: 8px 0 4px; padding-left: 18px; }
+.basics li { margin: 3px 0; }
+.basics small { display: block; color: var(--muted); font-size: 0.76rem; }
+.basics .hint { margin: 6px 0 0; }
+.basics a, .basics-field small a { color: var(--accent); font-weight: 600; }
+.basics-field { margin-top: 10px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.check small { display: block; font-weight: 400; color: var(--muted); font-size: 0.78rem; }

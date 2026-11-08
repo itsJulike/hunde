@@ -1,6 +1,6 @@
 // Gemmer appen offline. Svarer fra cachen med det samme og henter
 // en frisk udgave i baggrunden, så ændringer ses næste gang appen åbnes.
-const CACHE = 'opskrifter-v12';
+const CACHE = 'opskrifter-v13';
 const SHELL = [
   './',
   'index.html',
@@ -9,7 +9,9 @@ const SHELL = [
   'recipes.json',
   'manifest.webmanifest',
   'ikoner/icon-192.png',
-  'ikoner/apple-touch-icon.png'
+  'ikoner/apple-touch-icon.png',
+  'fonts/exo.woff2',
+  'fonts/inter.woff2'
 ];
 
 self.addEventListener('install', (event) => {
