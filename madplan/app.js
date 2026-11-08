@@ -63,6 +63,7 @@ const icon = {
   x: svg(19, '<path d="M6 6l12 12M18 6 6 18"/>'),
   plus: svg(20, '<path d="M12 5v14M5 12h14"/>', 'stroke-width="2.4"'),
   share: svg(20, '<path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>', 'stroke-width="2"'),
+  todoist: svg(20, '<path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5 12 21l8-4.5"/><path d="M4 7.5 12 3l8 4.5-8 4.5Z"/>', 'stroke-width="2"'),
   search: svg(18, '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>')
 };
 
@@ -380,6 +381,82 @@ function paintSync(el) {
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-retry]')) push(); });
 
+/* ---------- Todoist ---------- */
+// Varer sendes til Todoist med Todoists Sync-API direkte fra telefonen. Nøglen gemmes kun på enheden.
+const TODOIST = 'https://api.todoist.com/api/v1/sync';
+const todoistKey = () => load('todoistNoegle', '');
+
+async function todoistSync(form, token = todoistKey()) {
+  if (!token) throw fail('Tilføj din Todoist-nøgle under <a href="#/indstillinger">Indstillinger</a>.', 'nokey');
+  let res;
+  try {
+    res = await fetch(TODOIST, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(form)
+    });
+  } catch {
+    throw fail('Ingen forbindelse til Todoist.', 'offline');
+  }
+  if (res.status === 401 || res.status === 403) throw fail('Todoist-nøglen virker ikke. Tjek den under <a href="#/indstillinger">Indstillinger</a>.', 'auth');
+  if (!res.ok) throw fail(`Todoist svarede med fejl ${res.status}.`);
+  return res.json();
+}
+
+// Henter projekter og sektioner, så man kan vælge, hvor varerne skal hen.
+async function todoistProjects(token) {
+  const d = await todoistSync({ sync_token: '*', resource_types: JSON.stringify(['projects', 'sections']) }, token);
+  const live = (x) => !x.is_deleted && !x.is_archived;
+  const projects = (d.projects || []).filter(live).sort((a, b) => (b.inbox_project ? 1 : 0) - (a.inbox_project ? 1 : 0) || (a.child_order ?? 0) - (b.child_order ?? 0));
+  return { projects, sections: (d.sections || []).filter(live).sort((a, b) => (a.section_order ?? 0) - (b.section_order ?? 0)) };
+}
+
+// Hvor varerne lander: { projekt, projektNavn, sektion, sektionNavn }. Standard er et projekt, der hedder noget med indkøb.
+function defaultTarget({ projects }) {
+  const p = projects.find((x) => /indk[øo]b|handle|shopping|grocer/i.test(x.name)) || projects.find((x) => x.inbox_project) || projects[0];
+  return p ? { projekt: p.id, projektNavn: p.name, sektion: '', sektionNavn: '' } : null;
+}
+
+// Husker pr. uge, hvilke varer (med hvilken mængde) der er sendt, så de ikke sendes to gange.
+const sentMap = (key) => load('todoistSendt', {})[key] || {};
+function saveSent(key, map) {
+  const all = load('todoistSendt', {});
+  for (const k of Object.keys(all)) if (k < shiftWeek(weekKey(new Date()), -4)) delete all[k];
+  if (Object.keys(map).length) all[key] = map;
+  else delete all[key];
+  save('todoistSendt', all);
+}
+
+async function sendToTodoist(key, items) {
+  const target = load('todoistMaal', null);
+  if (!todoistKey() || !target) throw fail('Tilføj din Todoist-nøgle og vælg et projekt under <a href="#/indstillinger">Indstillinger</a>.', 'nokey');
+  const sent = sentMap(key);
+  let ok = 0;
+  let failed = 0;
+  for (let i = 0; i < items.length; i += 50) {
+    const chunk = items.slice(i, i + 50).map((x) => ({
+      x,
+      cmd: {
+        type: 'item_add',
+        uuid: crypto.randomUUID(),
+        temp_id: crypto.randomUUID(),
+        args: {
+          content: x.label,
+          description: [x.from.length ? 'Til ' + x.from.join(', ') : '', `Madplan uge ${weekNo(key)}`].filter(Boolean).join(' · '),
+          project_id: target.projekt,
+          ...(target.sektion && { section_id: target.sektion })
+        }
+      }
+    }));
+    const d = await todoistSync({ commands: JSON.stringify(chunk.map((c) => c.cmd)) });
+    for (const { x, cmd } of chunk) {
+      if (d.sync_status?.[cmd.uuid] === 'ok') { sent[x.id] = x.label; ok++; } else failed++;
+    }
+    saveSent(key, sent);
+  }
+  return { ok, failed };
+}
+
 /* ---------- Ugeplan ---------- */
 function mealHTML(d, i) {
   if (!d) {
@@ -620,12 +697,35 @@ function renderShopping() {
   const open = items.filter((x) => !checked.has(x.id));
   const done = items.filter((x) => checked.has(x.id));
   const meals = w.dage.filter((d) => d?.opskrift).length;
-  const row = (x) => `
+  const sent = sentMap(key);
+  const unsent = open.filter((x) => sent[x.id] !== x.label);
+  const target = load('todoistMaal', null);
+  const hasTodoist = todoistKey() && target;
+  const row = (x) => {
+    const notes = [];
+    if (x.from.length) notes.push(esc(x.from.join(', ')));
+    if (sent[x.id] === x.label) notes.push('<em class="td">I Todoist</em>');
+    else if (sent[x.id]) notes.push('<em class="td">Mængden er ændret, siden den blev sendt til Todoist</em>');
+    return `
     <li><label>
       <input type="checkbox" data-id="${esc(x.id)}" ${checked.has(x.id) ? 'checked' : ''}>
-      <span>${esc(x.label)}${x.from.length ? `<small>${esc(x.from.join(', '))}</small>` : ''}</span>
+      <span>${esc(x.label)}${notes.length ? `<small>${notes.join(' · ')}</small>` : ''}</span>
       ${x.extra !== undefined ? `<button type="button" class="mini" data-del="${x.extra}" aria-label="Fjern ${esc(x.label)}">${icon.x}</button>` : ''}
     </label></li>`;
+  };
+  const where = target ? esc(target.projektNavn) + (target.sektionNavn ? ' › ' + esc(target.sektionNavn) : '') : '';
+  let todoistBtn = '';
+  if (open.length) {
+    if (!hasTodoist) {
+      todoistBtn = `<a class="btn todoist" href="#/indstillinger">${icon.todoist}<span>Send til Todoist</span></a>
+        <p class="hint todoist-hint">Tilføj din Todoist-nøgle under Indstillinger først.</p>`;
+    } else if (unsent.length) {
+      todoistBtn = `<button class="btn todoist" type="button" id="todoist">${icon.todoist}<span>Send ${unsent.length} ${unsent.length === 1 ? 'vare' : 'varer'} til Todoist</span></button>
+        <p class="hint todoist-hint">Lander i ${where}.${unsent.length < open.length ? ' Varer, der allerede er sendt, kommer ikke med igen.' : ''}${unsent.some((x) => sent[x.id]) ? ' Varer med ændret mængde sendes som nye opgaver, så slet de gamle i Todoist.' : ''}</p>`;
+    } else {
+      todoistBtn = `<p class="hint todoist-hint">Alle varer er sendt til ${where} i Todoist. <button class="linkbtn" type="button" id="todoistAgain">Send alle igen</button></p>`;
+    }
+  }
   document.title = `Indkøb uge ${weekNo(key)}`;
   app.innerHTML = `
     <div class="wrap">
@@ -643,6 +743,8 @@ function renderShopping() {
         <input id="addText" placeholder="Tilføj vare, fx mælk eller opvasketabs" maxlength="80" enterkeyhint="done" autocomplete="off">
         <button class="btn" type="submit">${icon.plus}<span class="sr">Tilføj</span></button>
       </form>
+      ${todoistBtn}
+      <p class="imp-status" id="tdStatus" role="status" hidden></p>
       ${items.length ? '' : '<div class="empty"><strong>Listen er tom</strong>Vælg retter til ugen, så kommer ingredienserne her.</div>'}
       ${open.length ? `<ul class="ingredients shop">${open.map(row).join('')}</ul>` : ''}
       ${done.length ? `<div class="section-head"><h2>I kurven</h2><button class="linkbtn" type="button" id="uncheck">Fjern flueben</button></div>
@@ -672,6 +774,32 @@ function renderShopping() {
     document.getElementById('addText').focus();
   });
   document.getElementById('uncheck')?.addEventListener('click', () => { saveChecked(key, new Set()); renderShopping(); });
+
+  const send = async (list, btn) => {
+    const st = document.getElementById('tdStatus');
+    if (btn) btn.disabled = true;
+    st.className = 'imp-status busy';
+    st.textContent = 'Sender til Todoist…';
+    st.hidden = false;
+    try {
+      const { ok, failed } = await sendToTodoist(key, list);
+      renderShopping();
+      if (failed) {
+        const st2 = document.getElementById('tdStatus');
+        st2.className = 'imp-status warn';
+        st2.textContent = `${ok} ${ok === 1 ? 'vare' : 'varer'} sendt. ${failed} kunne ikke sendes – tryk på knappen igen for at prøve dem igen.`;
+        st2.hidden = false;
+      } else toast(`${ok} ${ok === 1 ? 'vare' : 'varer'} sendt til Todoist`);
+    } catch (ex) {
+      if (btn) btn.disabled = false;
+      st.className = 'imp-status bad';
+      st.innerHTML = ex.message; // beskederne er skrevet i appen og kan indeholde et link til Indstillinger
+    }
+  };
+  const tdBtn = document.getElementById('todoist');
+  tdBtn?.addEventListener('click', () => send(unsent, tdBtn));
+  document.getElementById('todoistAgain')?.addEventListener('click', () => { saveSent(key, {}); send(open); });
+
   document.getElementById('share').addEventListener('click', async () => {
     const text = `Indkøb uge ${weekNo(key)}\n` + open.map((x) => '• ' + x.label).join('\n');
     try {
@@ -687,6 +815,7 @@ function renderShopping() {
 function renderSettings() {
   document.title = 'Indstillinger';
   const k = keys();
+  const saved = load('todoistMaal', null);
   app.innerHTML = `
     <div class="wrap">
       <nav class="bar">
@@ -694,36 +823,103 @@ function renderSettings() {
       </nav>
       <header class="hero"><h1>Indstillinger</h1></header>
       <form id="settings" class="form" autocomplete="off">
-        <p class="hint">Med GitHub-nøglen gemmes madplanen i ${REPO}, så alle kan se den samme plan. Det er den samme nøgle som i opskriftsappen. Den gemmes kun på denne enhed.</p>
-        <label class="field"><span>GitHub-nøgle</span>
+        <p class="hint">Nøglerne gemmes kun på denne enhed.</p>
+        <label class="field"><span>GitHub-nøgle</span><small>Gemmer madplanen i ${REPO}, så alle ser den samme plan. Det er den samme nøgle som i opskriftsappen.</small>
           <input name="github" type="password" value="${esc(k.github)}" placeholder="github_pat_…" autocomplete="off"></label>
+        <label class="field"><span>Todoist-nøgle</span><small>Bruges til at sende indkøbslisten til Todoist. Find den i Todoist under Indstillinger → Integrationer → Udvikler → API-token.</small>
+          <input name="todoist" type="password" value="${esc(todoistKey())}" placeholder="API-token fra Todoist" autocomplete="off"></label>
+        <label class="field" id="targetField" ${todoistKey() ? '' : 'hidden'}><span>Send varerne til</span>
+          <select name="target" id="target">${saved ? `<option value="${esc(saved.projekt + '|' + saved.sektion)}">${esc(saved.projektNavn + (saved.sektionNavn ? ' › ' + saved.sektionNavn : ''))}</option>` : '<option value="">Henter projekter…</option>'}</select></label>
         <p class="imp-status" id="setStatus" role="status" hidden></p>
         <button class="btn primary" type="submit">Gem og test</button>
-        <button class="btn danger" type="button" id="forget">Glem nøglen på denne enhed</button>
+        <button class="btn danger" type="button" id="forget">Glem nøglerne på denne enhed</button>
       </form>
     </div>`;
   window.scrollTo(0, 0);
   const form = document.getElementById('settings');
   const status = document.getElementById('setStatus');
   const setStatus = (msg, kind) => { status.innerHTML = msg; status.className = 'imp-status ' + kind; status.hidden = !msg; };
+  const select = document.getElementById('target');
+  const field = document.getElementById('targetField');
+  let lists = null;
+  const label = (t) => (t ? t.projektNavn + (t.sektionNavn ? ' › ' + t.sektionNavn : '') : '');
+
+  // Fylder listen med projekter og deres sektioner, fx "Indkøb" og "Indkøb › Netto".
+  const fillTargets = (data, current) => {
+    lists = data;
+    const opts = [];
+    for (const p of data.projects) {
+      opts.push([p.id + '|', p.name]);
+      for (const s of data.sections.filter((x) => x.project_id === p.id)) opts.push([p.id + '|' + s.id, `${p.name} › ${s.name}`]);
+    }
+    const cur = current ? current.projekt + '|' + current.sektion : '';
+    select.innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
+    field.hidden = false;
+  };
+  const chosenTarget = () => {
+    if (!lists || !select.value) return null;
+    const [pid, sid] = select.value.split('|');
+    const p = lists.projects.find((x) => x.id === pid);
+    const s = lists.sections.find((x) => x.id === sid);
+    return p ? { projekt: p.id, projektNavn: p.name, sektion: s?.id || '', sektionNavn: s?.name || '' } : null;
+  };
+  if (todoistKey()) {
+    todoistProjects(todoistKey())
+      .then((d) => {
+        const t = saved && d.projects.some((p) => p.id === saved.projekt) ? saved : defaultTarget(d);
+        fillTargets(d, t);
+        if (!saved && t) save('todoistMaal', t);
+      })
+      .catch(() => { /* vises, når man trykker Gem og test */ });
+  }
+  select.addEventListener('change', () => {
+    const t = chosenTarget();
+    if (!t) return;
+    save('todoistMaal', t);
+    setStatus(`Varerne sendes til ${esc(label(t))}.`, 'good');
+  });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const gh = form.elements.github.value.trim();
+    const td = form.elements.todoist.value.trim();
     save('githubNoegle', gh);
-    if (!gh) return setStatus('Nøglen er fjernet fra denne enhed.', 'good');
-    setStatus('Tester nøglen…', 'busy');
-    try {
-      const r = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Authorization: `Bearer ${gh}` }, cache: 'no-store' });
-      const d = await r.json();
-      const ok = r.ok && d.permissions?.push;
-      setStatus(ok ? 'GitHub: virker ✓' : r.status === 401 ? 'GitHub: nøglen virker ikke ✗' : `GitHub: nøglen må ikke skrive i ${REPO} ✗`, ok ? 'good' : 'bad');
-      if (ok) { await refresh(true); push(); }
-    } catch { setStatus('Kunne ikke teste nøglen (ingen forbindelse).', 'bad'); }
+    save('todoistNoegle', td);
+    if (!td) { save('todoistMaal', null); field.hidden = true; }
+    if (!gh && !td) return setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
+    setStatus('Tester nøglerne…', 'busy');
+    const out = [];
+    let ghOk = false;
+    if (gh) {
+      try {
+        const r = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Authorization: `Bearer ${gh}` }, cache: 'no-store' });
+        const d = await r.json();
+        ghOk = r.ok && d.permissions?.push;
+        out.push(ghOk ? 'GitHub: virker ✓' : r.status === 401 ? 'GitHub: nøglen virker ikke ✗' : `GitHub: nøglen må ikke skrive i ${REPO} ✗`);
+      } catch { out.push('GitHub: kunne ikke testes (ingen forbindelse) ✗'); }
+    }
+    if (td) {
+      try {
+        const d = await todoistProjects(td);
+        const prev = chosenTarget() || load('todoistMaal', null);
+        const t = prev && d.projects.some((p) => p.id === prev.projekt) ? prev : defaultTarget(d);
+        fillTargets(d, t);
+        save('todoistMaal', t);
+        out.push(`Todoist: virker ✓ Varerne sendes til ${label(t) || '?'}. Du kan vælge et andet projekt ovenfor.`);
+      } catch (ex) {
+        out.push(ex.kind === 'auth' ? 'Todoist: nøglen virker ikke ✗' : 'Todoist: kunne ikke testes (' + ex.message.replace(/<[^>]+>/g, '') + ') ✗');
+      }
+    }
+    setStatus(out.map(esc).join('<br>'), out.some((x) => x.includes('✗')) ? 'bad' : 'good');
+    if (ghOk) { await refresh(true); push(); }
   });
   document.getElementById('forget').addEventListener('click', () => {
     save('githubNoegle', '');
-    form.elements.github.value = '';
-    setStatus('Nøglen er fjernet fra denne enhed.', 'good');
+    save('todoistNoegle', '');
+    save('todoistMaal', null);
+    form.elements.github.value = form.elements.todoist.value = '';
+    field.hidden = true;
+    setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
   });
 }
 

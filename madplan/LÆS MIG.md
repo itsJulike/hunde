@@ -26,7 +26,22 @@ planen (den opdateres på siden inden for 1–10 minutter).
   tilføje andre varer, krydse af og dele listen til fx Påmindelser eller Beskeder. Afkrydsningerne
   gemmes kun på telefonen; de tilføjede varer deles med de andre.
 
+## Send indkøbslisten til Todoist
+
+1. Find din API-nøgle i Todoist: **Indstillinger → Integrationer → Udvikler → API-token**
+   (eller https://app.todoist.com/app/settings/integrations/developer). Kopiér den.
+2. I Madplan: tryk på tandhjulet, sæt nøglen ind under **Todoist-nøgle** og tryk **Gem og test**.
+3. Vælg under **Send varerne til**, hvilket projekt (og evt. hvilken sektion) varerne skal i. Appen
+   vælger selv et projekt, der hedder noget med "Indkøb", hvis du har et.
+
+På indkøbslisten trykker du så **Send … varer til Todoist**. Hver vare bliver en opgave, og i
+beskrivelsen står, hvilken ret den er til. Varer, der allerede er sendt, får mærket "I Todoist" og
+sendes ikke igen. Ændrer du mængden bagefter, sendes varen som en ny opgave, så slet den gamle i Todoist.
+
+Todoist-nøglen giver adgang til hele din Todoist, men appen opretter kun opgaver. Den gemmes kun
+på den enhed, du skriver den på.
+
 ## Ret i appen
 
-Hvis du ændrer i `app.js` eller `madplan.css`, så hæv tallet i `madplan-v1` øverst i `sw.js`.
+Hvis du ændrer i `app.js` eller `madplan.css`, så hæv tallet i `madplan-v2` øverst i `sw.js`.
 Appen bruger opskriftsappens `app.css` til farver og knapper, så den følger med, hvis udseendet ændres dér.

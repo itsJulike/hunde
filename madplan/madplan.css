@@ -118,3 +118,15 @@ body.locked { overflow: hidden; }
   .sheet-wrap { background: rgb(0 0 0 / 60%); }
   .sync.error { background: #4a1712; color: #ffb4a8; }
 }
+
+/* Todoist */
+.btn.todoist { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 0; background: #db4c3f; border-color: #db4c3f; color: #fff; font-weight: 600; }
+.todoist-hint { margin: 6px 0 14px; }
+.todoist-hint .linkbtn { padding: 0; font-size: inherit; }
+#tdStatus { margin: -4px 0 14px; }
+.shop .td { font-style: normal; color: #db4c3f; font-weight: 600; }
+.field select { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+@media (prefers-color-scheme: dark) {
+  .btn.todoist { background: #c23f33; border-color: #c23f33; }
+  .shop .td { color: #ff8f84; }
+}
