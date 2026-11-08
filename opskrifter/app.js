@@ -10,7 +10,7 @@ const state = {
   favs: new Set(load('favoritter', [])),
   checked: {},      // afkrydsede ingredienser/trin pr. opskrift (kun mens appen er åben)
   scale: {},        // valgt mængde pr. opskrift, fx 2 for dobbelt portion
-  localImages: {},  // nye billeder vises herfra, indtil GitHub Pages har lagt dem ud
+  localImages: {},  // nye billeder vises med det samme herfra
   homeScroll: 0
 };
 
@@ -189,7 +189,7 @@ function updateHome() {
     const meta = `<span class="cat-label">${esc(r.kategori)}</span>` + [r.ovn, r.bagetid].filter(Boolean).map(esc).join(' · ');
     const hit = state.q.trim() ? ingredientHit(r) : '';
     return `<li><a class="card ${tone(r)}" href="#/${encodeURIComponent(r.id)}">
-      <div class="thumb ${tone(r)}">${r.billede ? `<img src="${esc(imgSrc(r.billede))}" alt="" loading="lazy">` : esc(r.titel.charAt(0))}</div>
+      <div class="thumb ${tone(r)}">${r.billede ? `<img ${imgAttr(r.billede)} alt="">` : esc(r.titel.charAt(0))}</div>
       <div class="body">
         <h2>${esc(r.titel)}${state.favs.has(r.id) ? '<span class="heart" aria-label="Favorit">♥</span>' : ''}</h2>
         <p class="meta">${meta}</p>
@@ -290,7 +290,7 @@ function renderRecipe(r) {
       </nav>
 
       <header class="hero ${tone(r)}">
-        ${r.billede ? `<img class="photo" src="${esc(imgSrc(r.billede))}" alt="">` : ''}
+        ${r.billede ? `<img class="photo" ${imgAttr(r.billede)} alt="">` : ''}
         <p class="kicker">${esc(r.kategori)}</p>
         <h1>${esc(r.titel)}</h1>
         ${facts.length ? `<ul class="facts">${facts.map(([k, v]) => k === 'Giver' ? `<li id="yield"><span>${k}</span>${scaledYield(v, f)}</li>` : `<li><span>${k}</span>${esc(v)}</li>`).join('')}</ul>` : ''}
@@ -454,13 +454,12 @@ function shrink(file, max = 1568, quality = 0.85) {
 }
 
 /* ---------- Gem på GitHub og hent med Claude ---------- */
-// Appen ligger på GitHub Pages, som ikke kan køre kode på serveren. Derfor gemmes opskrifter og billeder
-// direkte i GitHub-repoet, og Claude kaldes direkte fra telefonen. Nøglerne ligger kun på den enhed,
-// hvor de er skrevet ind under Indstillinger.
-// Appen ligger i mappen opskrifter/ i hunde-repoet, som er det, der vises på markusvej.dk.
-const REPO = 'itsJulike/hunde';
+// Appen ligger på GitHub Pages, som ikke kan køre kode på serveren. Opskrifter og billeder ligger i det
+// private repo Login.DATA_REPO og hentes og gemmes med GitHub-nøglen. Claude kaldes direkte fra telefonen.
+// Nøglerne får man ved at logge ind (se login.js).
+const REPO = Login.DATA_REPO;
 const BRANCH = 'main';
-const DIR = 'opskrifter/';
+const DIR = '';
 const MODEL = 'claude-haiku-5-5';
 
 const keys = () => ({ github: load('githubNoegle', ''), claude: load('claudeNoegle', '') });
@@ -564,7 +563,6 @@ async function saveRecipe(o, photo, old) {
   if (photo) {
     billede = `billeder/${o.id}-${Date.now()}.jpg`;
     await putFile(billede, photo.split(',')[1], `Billede til ${o.titel.trim()}`);
-    // GitHub Pages er et minut om at vise nye filer, så billedet vises herfra indtil da.
     state.localImages[billede] = photo;
   } else if (photo === null) {
     billede = '';
@@ -575,17 +573,24 @@ async function saveRecipe(o, photo, old) {
     if (i >= 0) all[i] = r; else all.push(r);
     return all;
   }, `${old ? 'Ret' : 'Ny opskrift:'} ${r.titel}`);
-  if (old?.billede && old.billede !== billede) await deleteFile(old.billede, `Fjern gammelt billede til ${r.titel}`).catch(() => {});
+  if (old?.billede && old.billede !== billede) {
+    await deleteFile(old.billede, `Fjern gammelt billede til ${r.titel}`).catch(() => {});
+    Login.forgetImage(old.billede);
+  }
   return list;
 }
 
 async function deleteRecipe(r) {
   const list = await updateRecipes((all) => all.filter((x) => x.id !== r.id), `Slet ${r.titel}`);
-  if (r.billede) await deleteFile(r.billede, `Slet billede til ${r.titel}`).catch(() => {});
+  if (r.billede) {
+    await deleteFile(r.billede, `Slet billede til ${r.titel}`).catch(() => {});
+    Login.forgetImage(r.billede);
+  }
   return list;
 }
 
-const imgSrc = (path) => state.localImages[path] || path;
+// Billeder ligger i det private repo og hentes med nøglen (se Login.hydrate). Nye billeder vises med det samme.
+const imgAttr = (path) => (state.localImages[path] ? `src="${esc(state.localImages[path])}"` : `data-img="${esc(path)}"`);
 
 async function claudeImport({ link, tekst, images }) {
   const key = keys().claude;
@@ -674,60 +679,17 @@ async function claudeImport({ link, tekst, images }) {
 /* ---------- Indstillinger ---------- */
 function renderSettings() {
   document.title = 'Indstillinger';
-  const k = keys();
   app.innerHTML = `
     <div class="wrap">
       <nav class="bar">
         <a class="iconbtn" href="#/">${icon.back}<span>Opskrifter</span></a>
       </nav>
       <header class="hero"><h1>Indstillinger</h1></header>
-      <form id="settings" class="form" autocomplete="off">
-        <p class="hint">Nøglerne gemmes kun på denne enhed og sendes kun til GitHub og Anthropic. Uden nøgler kan du stadig se og søge i opskrifterne.</p>
-        <label class="field"><span>GitHub-nøgle</span><small>Bruges til at gemme, rette og slette opskrifter og billeder i ${REPO}. Se LÆS MIG for, hvordan du laver den.</small>
-          <input name="github" type="password" value="${esc(k.github)}" placeholder="github_pat_…" autocomplete="off"></label>
-        <label class="field"><span>Anthropic-nøgle</span><small>Bruges til at hente opskrifter fra links, tekst, tekstfiler og billeder med Claude.</small>
-          <input name="claude" type="password" value="${esc(k.claude)}" placeholder="sk-ant-…" autocomplete="off"></label>
-        <p class="imp-status" id="setStatus" role="status" hidden></p>
-        <button class="btn primary" type="submit">Gem og test</button>
-        <button class="btn danger" type="button" id="forget">Glem nøglerne på denne enhed</button>
-      </form>
+      ${Login.accountHTML()}
+      <p class="hint">Anthropic-nøglen ${keys().claude ? 'er sat op, så du kan hente opskrifter med Claude' : 'mangler, så hent-funktionen deler kun indsat tekst op. Tilføj den under "Skift nøgler eller adgangskode"'}.</p>
     </div>`;
   window.scrollTo(0, 0);
-  const form = document.getElementById('settings');
-  const status = document.getElementById('setStatus');
-  const setStatus = (msg, kind) => { status.innerHTML = msg; status.className = 'imp-status ' + kind; status.hidden = !msg; };
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const gh = form.elements.github.value.trim();
-    const cl = form.elements.claude.value.trim();
-    save('githubNoegle', gh);
-    save('claudeNoegle', cl);
-    setStatus('Tester nøglerne…', 'busy');
-    const out = [];
-    if (gh) {
-      try {
-        const r = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Authorization: `Bearer ${gh}` }, cache: 'no-store' });
-        const d = await r.json();
-        out.push(r.ok && d.permissions?.push ? 'GitHub: virker ✓' : r.status === 401 ? 'GitHub: nøglen virker ikke ✗' : `GitHub: nøglen må ikke skrive i ${REPO} ✗`);
-      } catch { out.push('GitHub: kunne ikke testes (ingen forbindelse)'); }
-    }
-    if (cl) {
-      try {
-        const r = await fetch(`https://api.anthropic.com/v1/models/${MODEL}`, { headers: { 'x-api-key': cl, 'anthropic-version': '2026-10-21', 'anthropic-dangerous-direct-browser-access': 'true' } });
-        out.push(r.ok ? 'Claude: virker ✓' : r.status === 401 ? 'Claude: nøglen virker ikke ✗' : `Claude: fejl ${r.status} ✗`);
-      } catch { out.push('Claude: kunne ikke testes (ingen forbindelse)'); }
-    }
-    if (!out.length) return setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
-    setStatus(out.map(esc).join('<br>'), out.some((x) => x.includes('✗')) ? 'bad' : 'good');
-    if (gh) start(true);
-  });
-  document.getElementById('forget').addEventListener('click', () => {
-    save('githubNoegle', '');
-    save('claudeNoegle', '');
-    form.elements.github.value = form.elements.claude.value = '';
-    setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
-  });
+  Login.bindAccount({ name: 'Opskrifter', onDone: () => { location.hash = '#/'; location.reload(); } });
 }
 
 // Læser en tekstfil. Filer fra Notesblok på ældre Windows er ofte ikke UTF-8, så æ, ø og å læses så som Windows-1252.
@@ -785,7 +747,7 @@ function renderForm(r, params = new URLSearchParams()) {
         ${field('titel', 'Titel', v.titel, 'required enterkeyhint="next"')}
         <div class="field">
           <span>Billede</span>
-          <img class="photo" id="photoImg" alt="" ${v.billede ? `src="${esc(imgSrc(v.billede))}"` : 'hidden'}>
+          <img class="photo" id="photoImg" alt="" ${v.billede ? imgAttr(v.billede) : 'hidden'}>
           <div class="imp-row">
             <label class="btn">${icon.photo}<span id="photoLabel">${v.billede ? 'Skift billede' : 'Tilføj billede'}</span><input type="file" id="photoFile" accept="image/*" hidden></label>
             <button type="button" class="btn" id="photoRemove" ${v.billede ? '' : 'hidden'}>Fjern billede</button>
@@ -1046,28 +1008,36 @@ function route() {
   }
 }
 
-// Med en GitHub-nøgle hentes opskrifterne direkte fra GitHub, så ændringer ses med det samme.
-// Ellers (og offline) bruges recipes.json fra siden, som GitHub Pages kan være op til 10 minutter om at opdatere.
+// Opskrifterne hentes fra det private repo. En kopi gemmes på enheden, så appen også virker offline.
 async function loadRecipes() {
-  if (keys().github) {
-    try {
-      const res = await github('recipes.json', { raw: true });
-      if (res.ok) return await res.json();
-    } catch { /* falder tilbage til siden */ }
+  try {
+    const res = await github('recipes.json', { raw: true });
+    const list = res.status === 404 ? [] : await res.json();
+    save('opskrifterKopi', list);
+    return list;
+  } catch (ex) {
+    const copy = load('opskrifterKopi', null);
+    if (copy && ex.kind !== 'auth') return copy;
+    throw ex;
   }
-  const res = await fetch('recipes.json', { cache: 'no-cache' });
-  return res.json();
 }
 
+let started = false;
 async function start(reload = false) {
+  if (!Login.loggedIn()) return Login.showLogin(app, { name: 'Opskrifter', onDone: () => start() });
   try {
     state.recipes = normalize(await loadRecipes());
-  } catch {
-    if (!reload) app.innerHTML = '<div class="wrap"><div class="empty"><strong>Kunne ikke hente opskrifterne</strong>Tjek din forbindelse og prøv igen.</div></div>';
+  } catch (ex) {
+    if (reload) return;
+    app.innerHTML = ex.kind === 'auth'
+      ? '<div class="wrap"><div class="empty"><strong>GitHub-nøglen virker ikke længere</strong>Måske er den udløbet. Lav en ny og gem den her.<br><button class="btn primary" type="button" id="fixKeys">Skift nøgler</button></div></div>'
+      : '<div class="wrap"><div class="empty"><strong>Kunne ikke hente opskrifterne</strong>Tjek din forbindelse og prøv igen.</div></div>';
+    document.getElementById('fixKeys')?.addEventListener('click', () => Login.showSetup(app, { name: 'Opskrifter', onDone: () => location.reload() }));
     return;
   }
   if (reload) return;
-  window.addEventListener('hashchange', route);
+  if (!started) window.addEventListener('hashchange', route);
+  started = true;
   route();
 }
 

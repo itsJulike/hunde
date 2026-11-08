@@ -5,10 +5,10 @@
 // og altid også på enheden, så den virker offline.
 
 const app = document.getElementById('app');
-const REPO = 'itsJulike/hunde';
+const REPO = Login.DATA_REPO; // privat repo med opskrifter, billeder og madplan
 const BRANCH = 'main';
 const PLAN = 'madplan/plan.json';
-const RECIPES = 'opskrifter/recipes.json';
+const RECIPES = 'recipes.json';
 const OPSKRIFTER = '../opskrifter/';
 const DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
 const MONTHS = ['januar', 'februar', 'marts', 'april', 'maj', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'december'];
@@ -354,23 +354,23 @@ async function github(path, { method = 'GET', body, raw = false } = {}) {
   return res;
 }
 
+// Opskrifter og plan hentes fra det private repo. En kopi gemmes på enheden, så appen også virker offline.
 async function loadRecipes() {
-  if (keys().github) {
-    try {
-      const res = await github(RECIPES, { raw: true });
-      if (res.ok) return await res.json();
-    } catch { /* falder tilbage til siden */ }
+  try {
+    const res = await github(RECIPES, { raw: true });
+    const list = res.status === 404 ? [] : await res.json();
+    save('opskrifterKopi', list);
+    return list;
+  } catch (ex) {
+    const copy = load('opskrifterKopi', null);
+    if (copy && ex.kind !== 'auth') return copy;
+    throw ex;
   }
-  return (await fetch(OPSKRIFTER + 'recipes.json', { cache: 'no-cache' })).json();
 }
 
 async function loadRemotePlan() {
-  if (keys().github) {
-    const res = await github(PLAN, { raw: true });
-    return res.status === 404 ? {} : res.json();
-  }
-  const res = await fetch('plan.json', { cache: 'no-cache' });
-  return res.ok ? res.json() : {};
+  const res = await github(PLAN, { raw: true });
+  return res.status === 404 ? {} : res.json();
 }
 
 // Lægger planen fra GitHub ind, men beholder de uger, der er ændret her og ikke gemt endnu.
@@ -438,7 +438,7 @@ async function push() {
 
 function setSync(kind, ex) {
   const msg = {
-    local: 'Planen gemmes kun på denne enhed. Tilføj GitHub-nøglen under <a href="#/indstillinger">Indstillinger</a> for at dele den med de andre.',
+    local: 'Planen er kun gemt på denne enhed, fordi du ikke er logget ind.',
     pending: 'Gemmer…',
     saving: 'Gemmer…',
     saved: 'Gemt ✓',
@@ -575,7 +575,7 @@ function mealHTML(d, i, m) {
   const f = d.x || 1;
   const href = OPSKRIFTER + '#/' + encodeURIComponent(r.id);
   return `<div class="meal ${tone(r)}">
-      <a class="thumb" href="${href}">${r.billede ? `<img src="${esc(OPSKRIFTER + r.billede)}" alt="" loading="lazy">` : esc(r.titel.charAt(0))}</a>
+      <a class="thumb" href="${href}">${r.billede ? `<img data-img="${esc(r.billede)}" alt="">` : esc(r.titel.charAt(0))}</a>
       <div class="body">
         <a href="${href}"><h3>${esc(r.titel)}</h3></a>
         <p class="meta"><span class="cat-label">${esc(r.kategori || 'Andet')}</span>${r.udbytte ? scaledYield(r.udbytte, f) : ''}</p>
@@ -777,7 +777,7 @@ function openPicker(key, i, m = 'aftensmad') {
     list.innerHTML = hits.length
       ? hits.map((r) => `
         <li><button type="button" class="pick ${tone(r)}${cur?.opskrift === r.id ? ' current' : ''}" data-id="${esc(r.id)}">
-          <span class="thumb">${r.billede ? `<img src="${esc(OPSKRIFTER + r.billede)}" alt="" loading="lazy">` : esc(r.titel.charAt(0))}</span>
+          <span class="thumb">${r.billede ? `<img data-img="${esc(r.billede)}" alt="">` : esc(r.titel.charAt(0))}</span>
           <span class="body"><b>${esc(r.titel)}</b><small><span class="cat-label">${esc(r.kategori || 'Andet')}</span>${usedThisWeek.has(r.id) ? 'Allerede i ugen' : ''}</small></span>
         </button></li>`).join('')
       : '<li class="empty">Ingen opskrifter matcher</li>';
@@ -957,8 +957,8 @@ function renderShopping() {
 /* ---------- Indstillinger ---------- */
 function renderSettings() {
   document.title = 'Indstillinger';
-  const k = keys();
   const saved = load('todoistMaal', null);
+  const hasTodoist = !!todoistKey();
   app.innerHTML = `
     <div class="wrap">
       <nav class="bar">
@@ -966,58 +966,48 @@ function renderSettings() {
       </nav>
       <header class="hero"><h1>Indstillinger</h1></header>
       <form id="settings" class="form" autocomplete="off">
-        <p class="hint">Nøglerne gemmes kun på denne enhed.</p>
-        <label class="field"><span>GitHub-nøgle</span><small>Gemmer madplanen i ${REPO}, så alle ser den samme plan. Det er den samme nøgle som i opskriftsappen.</small>
-          <input name="github" type="password" value="${esc(k.github)}" placeholder="github_pat_…" autocomplete="off"></label>
-        <label class="field"><span>Todoist-nøgle</span><small>Bruges til at sende indkøbslisten til Todoist. Find den i Todoist under Indstillinger → Integrationer → Udvikler → API-token.</small>
-          <input name="todoist" type="password" value="${esc(todoistKey())}" placeholder="API-token fra Todoist" autocomplete="off"></label>
-        <label class="field" id="targetField" ${todoistKey() ? '' : 'hidden'}><span>Send varerne til</span>
+        <h2 class="settings-head">Todoist</h2>
+        ${hasTodoist ? `
+        <label class="field"><span>Send varerne til</span>
           <select name="target" id="target">${saved ? `<option value="${esc(saved.projekt + '|' + saved.sektion)}">${esc(saved.projektNavn + (saved.sektionNavn ? ' › ' + saved.sektionNavn : ''))}</option>` : '<option value="">Henter projekter…</option>'}</select></label>
-        <label class="check" id="groupField" ${todoistKey() ? '' : 'hidden'}><input type="checkbox" name="grupper" ${load('todoistGrupper', true) ? 'checked' : ''}>
-          <span>Del varerne op i sektioner efter varegruppe<small>Fx "Frugt og grønt" og "Kød og fisk" i det valgte projekt. Sektioner, der mangler, bliver oprettet.</small></span></label>
+        <label class="check"><input type="checkbox" name="grupper" ${load('todoistGrupper', true) ? 'checked' : ''}>
+          <span>Del varerne op i sektioner efter varegruppe<small>Fx "Frugt og grønt" og "Kød og fisk" i det valgte projekt. Sektioner, der mangler, bliver oprettet.</small></span></label>`
+        : '<p class="hint">Der er ingen Todoist-nøgle. Tilføj den under "Skift nøgler eller adgangskode" nedenfor.</p>'}
         <p class="imp-status" id="setStatus" role="status" hidden></p>
-        <button class="btn primary" type="submit">Gem og test</button>
-        <label class="field basics-field"><span>Basisvarer</span><small>Varer, du næsten altid har. De vises ikke på indkøbslisten og sendes ikke til Todoist. Én pr. linje. Gælder kun på denne enhed.</small>
+        <h2 class="settings-head">Basisvarer</h2>
+        <label class="field"><small>Varer, du næsten altid har. De vises ikke på indkøbslisten og sendes ikke til Todoist. Én pr. linje. Gælder kun på denne enhed.</small>
           <textarea name="basis" rows="6">${esc(basics().join('\n'))}</textarea></label>
-        <button class="btn danger" type="button" id="forget">Glem nøglerne på denne enhed</button>
       </form>
+      ${Login.accountHTML()}
     </div>`;
   window.scrollTo(0, 0);
   const form = document.getElementById('settings');
   const status = document.getElementById('setStatus');
   const setStatus = (msg, kind) => { status.innerHTML = msg; status.className = 'imp-status ' + kind; status.hidden = !msg; };
-  const select = document.getElementById('target');
-  const field = document.getElementById('targetField');
-  let lists = null;
-  const label = (t) => (t ? t.projektNavn + (t.sektionNavn ? ' › ' + t.sektionNavn : '') : '');
+  Login.bindAccount({ name: 'Madplan', onDone: () => { location.hash = '#/'; location.reload(); }, unsaved: () => state.dirty.size > 0 });
 
-  // Fylder listen med projekter og deres sektioner, fx "Indkøb" og "Indkøb › Netto".
+  form.elements.basis.addEventListener('change', () => {
+    const list = form.elements.basis.value.split(/\n/).map((x) => x.trim()).filter(Boolean);
+    save('basisvarer', list);
+    setStatus(`Basisvarer gemt (${list.length}).`, 'good');
+  });
+  if (!hasTodoist) return;
+
+  const select = document.getElementById('target');
+  const label = (t) => (t ? t.projektNavn + (t.sektionNavn ? ' › ' + t.sektionNavn : '') : '');
+  let lists = null;
+  // Fylder listen med projekter og, når varegrupper er slået fra, deres sektioner.
   const fillTargets = (data, current) => {
     lists = data;
-    const opts = [];
     const grouped = form.elements.grupper.checked;
+    const opts = [];
     for (const p of data.projects) {
       opts.push([p.id + '|', p.name]);
       if (!grouped) for (const s of data.sections.filter((x) => x.project_id === p.id)) opts.push([p.id + '|' + s.id, `${p.name} › ${s.name}`]);
     }
     const cur = current ? current.projekt + '|' + (grouped ? '' : current.sektion) : '';
     select.innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
-    field.hidden = false;
-    document.getElementById('groupField').hidden = false;
   };
-  form.elements.grupper.addEventListener('change', () => {
-    save('todoistGrupper', form.elements.grupper.checked);
-    if (lists) {
-      fillTargets(lists, chosenTarget() || load('todoistMaal', null));
-      const t = chosenTarget();
-      if (t) save('todoistMaal', t);
-    }
-  });
-  form.elements.basis.addEventListener('change', () => {
-    const list = form.elements.basis.value.split(/\n/).map((x) => x.trim()).filter(Boolean);
-    save('basisvarer', list);
-    setStatus(`Basisvarer gemt (${list.length}).`, 'good');
-  });
   const chosenTarget = () => {
     if (!lists || !select.value) return null;
     const [pid, sid] = select.value.split('|');
@@ -1025,64 +1015,25 @@ function renderSettings() {
     const s = lists.sections.find((x) => x.id === sid);
     return p ? { projekt: p.id, projektNavn: p.name, sektion: s?.id || '', sektionNavn: s?.name || '' } : null;
   };
-  if (todoistKey()) {
-    todoistProjects(todoistKey())
-      .then((d) => {
-        const t = saved && d.projects.some((p) => p.id === saved.projekt) ? saved : defaultTarget(d);
-        fillTargets(d, t);
-        if (!saved && t) save('todoistMaal', t);
-      })
-      .catch(() => { /* vises, når man trykker Gem og test */ });
-  }
+  todoistProjects()
+    .then((d) => {
+      const t = saved && d.projects.some((p) => p.id === saved.projekt) ? saved : defaultTarget(d);
+      fillTargets(d, t);
+      if (t && JSON.stringify(t) !== JSON.stringify(saved)) save('todoistMaal', t);
+    })
+    .catch((ex) => setStatus(ex.message, 'bad'));
   select.addEventListener('change', () => {
     const t = chosenTarget();
     if (!t) return;
     save('todoistMaal', t);
     setStatus(`Varerne sendes til ${esc(label(t))}.`, 'good');
   });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const gh = form.elements.github.value.trim();
-    const td = form.elements.todoist.value.trim();
-    save('githubNoegle', gh);
-    save('todoistNoegle', td);
-    if (!td) { save('todoistMaal', null); field.hidden = true; document.getElementById('groupField').hidden = true; }
-    if (!gh && !td) return setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
-    setStatus('Tester nøglerne…', 'busy');
-    const out = [];
-    let ghOk = false;
-    if (gh) {
-      try {
-        const r = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { Authorization: `Bearer ${gh}` }, cache: 'no-store' });
-        const d = await r.json();
-        ghOk = r.ok && d.permissions?.push;
-        out.push(ghOk ? 'GitHub: virker ✓' : r.status === 401 ? 'GitHub: nøglen virker ikke ✗' : `GitHub: nøglen må ikke skrive i ${REPO} ✗`);
-      } catch { out.push('GitHub: kunne ikke testes (ingen forbindelse) ✗'); }
-    }
-    if (td) {
-      try {
-        const d = await todoistProjects(td);
-        const prev = chosenTarget() || load('todoistMaal', null);
-        const t = prev && d.projects.some((p) => p.id === prev.projekt) ? prev : defaultTarget(d);
-        fillTargets(d, t);
-        save('todoistMaal', t);
-        out.push(`Todoist: virker ✓ Varerne sendes til ${label(t) || '?'}. Du kan vælge et andet projekt ovenfor.`);
-      } catch (ex) {
-        out.push(ex.kind === 'auth' ? 'Todoist: nøglen virker ikke ✗' : 'Todoist: kunne ikke testes (' + ex.message.replace(/<[^>]+>/g, '') + ') ✗');
-      }
-    }
-    setStatus(out.map(esc).join('<br>'), out.some((x) => x.includes('✗')) ? 'bad' : 'good');
-    if (ghOk) { await refresh(true); push(); }
-  });
-  document.getElementById('forget').addEventListener('click', () => {
-    save('githubNoegle', '');
-    save('todoistNoegle', '');
-    save('todoistMaal', null);
-    form.elements.github.value = form.elements.todoist.value = '';
-    field.hidden = true;
-    document.getElementById('groupField').hidden = true;
-    setStatus('Nøglerne er fjernet fra denne enhed.', 'good');
+  form.elements.grupper.addEventListener('change', () => {
+    save('todoistGrupper', form.elements.grupper.checked);
+    if (!lists) return;
+    fillTargets(lists, chosenTarget() || load('todoistMaal', null));
+    const t = chosenTarget();
+    if (t) save('todoistMaal', t);
   });
 }
 
@@ -1112,15 +1063,21 @@ async function refresh(force = false) {
   } catch { /* offline: brug planen på enheden */ }
 }
 
+let started = false;
 async function start() {
+  if (!Login.loggedIn()) return Login.showLogin(app, { name: 'Madplan', onDone: () => start() });
   try {
     state.recipes = (await loadRecipes()).map((r) => ({ ...r, tags: r.tags || [], ingredienser: r.ingredienser || [] }));
-  } catch {
-    app.innerHTML = '<div class="wrap"><div class="empty"><strong>Kunne ikke hente opskrifterne</strong>Tjek din forbindelse og prøv igen.</div></div>';
+  } catch (ex) {
+    app.innerHTML = ex.kind === 'auth'
+      ? '<div class="wrap"><div class="empty"><strong>GitHub-nøglen virker ikke længere</strong>Måske er den udløbet. Lav en ny og gem den her.<br><button class="btn primary" type="button" id="fixKeys">Skift nøgler</button></div></div>'
+      : '<div class="wrap"><div class="empty"><strong>Kunne ikke hente opskrifterne</strong>Tjek din forbindelse og prøv igen.</div></div>';
+    document.getElementById('fixKeys')?.addEventListener('click', () => Login.showSetup(app, { name: 'Madplan', onDone: () => location.reload() }));
     return;
   }
+  if (started) return route();
+  started = true;
   try { mergeRemote(await loadRemotePlan()); } catch { /* offline */ }
-  if (!keys().github && state.dirty.size) setSync('local');
   window.addEventListener('hashchange', route);
   route();
   if (keys().github && state.dirty.size) push();

@@ -175,3 +175,4 @@ body.locked { overflow: hidden; }
 .check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
 .check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
 .check small { display: block; font-weight: 400; color: var(--muted); font-size: 0.78rem; }
+.settings-head { margin: 8px 0 -4px; font: 800 1.1rem var(--head); }

@@ -3,15 +3,15 @@
 Planlæg ugens aftensmad med opskrifterne fra https://markusvej.dk/opskrifter/ og få en samlet
 indkøbsliste. Appen ligger i mappen `madplan/` i `itsJulike/hunde`, ved siden af `opskrifter/`.
 
-## Læg appen på iPhonen
+## Log ind
 
-1. Åbn `https://markusvej.dk/madplan/` i Safari.
-2. Tryk **Del** → **Føj til hjemmeskærm**.
-3. Tryk på tandhjulet og sæt den samme GitHub-nøgle ind som i opskriftsappen. Tryk **Gem og test**.
+Madplan bruger samme login som Opskrifter (se `opskrifter/LÆS MIG.md`). Opskrifter og madplan ligger
+i det private repo `itsJulike/opskrifter-data` (madplanen i `madplan/plan.json`), og alle, der er
+logget ind, ser den samme plan.
 
-Uden nøgle virker alt, men planen gemmes kun på den enhed. Med nøglen gemmes den i
-`madplan/plan.json` på GitHub, så alle med appen ser den samme plan. Dem uden nøgle kan stadig se
-planen (den opdateres på siden inden for 1–10 minutter).
+1. Åbn `https://markusvej.dk/madplan/` i Safari og log ind med adgangskoden.
+2. Tryk **Del** → **Føj til hjemmeskærm**, åbn appen derfra, og log ind igen (hjemmeskærms-appen
+   husker login for sig selv).
 
 ## Sådan bruges den
 
@@ -37,23 +37,17 @@ planen (den opdateres på siden inden for 1–10 minutter).
 
 ## Send indkøbslisten til Todoist
 
-1. Find din API-nøgle i Todoist: **Indstillinger → Integrationer → Udvikler → API-token**
-   (eller https://app.todoist.com/app/settings/integrations/developer). Kopiér den.
-2. I Madplan: tryk på tandhjulet, sæt nøglen ind under **Todoist-nøgle** og tryk **Gem og test**.
-3. Vælg under **Send varerne til**, hvilket projekt varerne skal i. Appen vælger selv et projekt, der
-   hedder noget med "Indkøb", hvis du har et.
-4. Med **Del varerne op i sektioner efter varegruppe** (slået til fra start) lander hver vare i en sektion
-   med varegruppens navn, fx "Frugt og grønt". Findes sektionen ikke, opretter appen den. Slår du det fra,
-   kan du i stedet vælge én bestemt sektion.
+Todoist-nøglen er en del af login (Indstillinger → Skift nøgler eller adgangskode). Under
+**Indstillinger → Todoist** vælger du projektet, og om varerne skal deles op i sektioner efter
+varegruppe, fx "Frugt og grønt". Sektioner, der mangler, bliver oprettet.
 
 På indkøbslisten trykker du så **Send … varer til Todoist**. Hver vare bliver en opgave, og i
 beskrivelsen står, hvilken ret den er til. Varer, der allerede er sendt, får mærket "I Todoist" og
 sendes ikke igen. Ændrer du mængden bagefter, sendes varen som en ny opgave, så slet den gamle i Todoist.
 
-Todoist-nøglen giver adgang til hele din Todoist, men appen opretter kun opgaver. Den gemmes kun
-på den enhed, du skriver den på.
+Todoist-nøglen giver adgang til hele din Todoist, men appen opretter kun opgaver.
 
 ## Ret i appen
 
-Hvis du ændrer i `app.js` eller `madplan.css`, så hæv tallet i `madplan-v5` øverst i `sw.js`.
+Hvis du ændrer i `app.js` eller `madplan.css` (eller `../opskrifter/login.js`), så hæv tallet i `madplan-v6` øverst i `sw.js`.
 Appen bruger opskriftsappens `app.css` til farver og knapper, så den følger med, hvis udseendet ændres dér.

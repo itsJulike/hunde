@@ -1,6 +1,6 @@
 // Gemmer madplanen offline. Svarer fra cachen med det samme og henter en frisk udgave i baggrunden.
-// Planen og opskrifterne hentes altid friske, når der er net.
-const CACHE = 'madplan-v5';
+// Planen og opskrifterne ligger i et privat repo og hentes af appen selv, ikke herfra.
+const CACHE = 'madplan-v6';
 const SHELL = [
   './',
   'index.html',
@@ -12,7 +12,7 @@ const SHELL = [
   '../opskrifter/app.css',
   '../opskrifter/fonts/exo.woff2',
   '../opskrifter/fonts/inter.woff2',
-  '../opskrifter/recipes.json'
+  '../opskrifter/login.js'
 ];
 
 self.addEventListener('install', (event) => {
