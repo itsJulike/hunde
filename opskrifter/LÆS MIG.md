@@ -94,5 +94,5 @@ Felter: `titel`, `kategori`, `tags`, `ovn`, `bagetid`, `bagetidMin` (tal, bruges
 `udbytte`, `form`, `tilfoejet` (dato), `ingredienser`, `fremgangsmaade`, `noter`, `kilde` (link),
 `billede` (fx `billeder/banankage-1730000000000.jpg`).
 
-Hvis du ændrer i `app.js`, `login.js` eller `app.css`, så hæv tallet i `opskrifter-v15` øverst i `sw.js`
-(fx til `v16`), så telefonen henter den nye udgave.
+Hvis du ændrer i `app.js`, `login.js` eller `app.css`, så hæv tallet i `opskrifter-v16` øverst i `sw.js`
+(fx til `v17`), så telefonen henter den nye udgave.

@@ -1,7 +1,7 @@
 // Gemmer appen offline. Svarer fra cachen med det samme og henter
 // en frisk udgave i baggrunden, så ændringer ses næste gang appen åbnes.
 // Opskrifterne ligger ikke her: de hentes fra det private repo og gemmes af appen selv.
-const CACHE = 'opskrifter-v15';
+const CACHE = 'opskrifter-v16';
 const SHELL = [
   './',
   'index.html',
@@ -16,7 +16,7 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))));
   self.skipWaiting();
 });
 
@@ -35,7 +35,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const cached = await cache.match(req, { ignoreSearch: true });
-      const fresh = fetch(req)
+      const fresh = fetch(req, { cache: 'no-cache' }) // spørg altid serveren, ikke browserens egen cache
         .then((res) => {
           if (res.ok) cache.put(req, res.clone());
           return res;
