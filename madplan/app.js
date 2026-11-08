@@ -590,8 +590,10 @@ function mealHTML(d, i, m) {
 function dayHTML(w, i, key, today) {
   const home = w.hjemme[i];
   const slots = home
-    ? `<div class="slot"><span class="slot-label">Frokost</span>${mealHTML(w.frokost[i], i, 'frokost')}</div>
-       <div class="slot"><span class="slot-label">Aftensmad</span>${mealHTML(w.dage[i], i, 'aftensmad')}</div>`
+    ? `<div class="slots">
+         <div class="slot"><span class="slot-label">Aftensmad</span>${mealHTML(w.dage[i], i, 'aftensmad')}</div>
+         <div class="slot"><span class="slot-label">Frokost</span>${mealHTML(w.frokost[i], i, 'frokost')}</div>
+       </div>`
     : mealHTML(w.dage[i], i, 'aftensmad');
   return `
     <li class="day${i === today ? ' today' : ''}${home ? ' home' : ''}">

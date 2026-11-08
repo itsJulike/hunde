@@ -142,7 +142,21 @@ body.locked { overflow: hidden; }
 .home-toggle[aria-pressed="true"] { background: var(--t4-bg); border-color: transparent; color: var(--t4-fg); }
 .day.home { border-color: var(--t4-fg); }
 .day.today.home { border-color: var(--accent); }
-.slot + .slot { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+/* Aftensmad og frokost side om side. Kortene bliver smallere, så knapperne lægges vandret under retten. */
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.slot { min-width: 0; }
+.slot + .slot { padding-left: 10px; margin-left: 10px; border-left: 1px dashed var(--line); }
+.slots .meal { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 4px 8px; align-items: start; }
+.slots .meal .thumb { width: 40px; height: 40px; border-radius: 10px; font-size: 1rem; }
+.slots .meal h3 { font-size: 0.92rem; overflow-wrap: anywhere; }
+.slots .meal .meta { font-size: 0.74rem; }
+.slots .meal .cat-label { display: none; }
+.slots .portion { margin-top: 4px; font-size: 0.74rem; }
+.slots .portion > span { display: none; }
+.slots .meal-actions { grid-column: 1 / -1; flex-direction: row; align-self: auto; gap: 0; margin-left: -6px; }
+.slots .meal.free { grid-template-columns: minmax(0, 1fr); }
+.slots .free-text { font-size: 0.92rem; }
+.slots .emptyday { min-height: 64px; flex-direction: column; gap: 2px; font-size: 0.85rem; }
 .slot-label { display: block; margin-bottom: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .week-hint { margin: 12px 0 0; }
 .prefs h4 { margin: 12px 0 6px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }

@@ -55,5 +55,5 @@ på den enhed, du skriver den på.
 
 ## Ret i appen
 
-Hvis du ændrer i `app.js` eller `madplan.css`, så hæv tallet i `madplan-v3` øverst i `sw.js`.
+Hvis du ændrer i `app.js` eller `madplan.css`, så hæv tallet i `madplan-v4` øverst i `sw.js`.
 Appen bruger opskriftsappens `app.css` til farver og knapper, så den følger med, hvis udseendet ændres dér.
