@@ -102,11 +102,20 @@ const Login = (() => {
     if (!res.ok) throw fail(`Kunne ikke gemme login (GitHub-fejl ${res.status}).`);
   }
 
+  // Kan nøglen skrive i repoet? GitHubs "permissions" fortæller kun, hvad kontoen må, ikke nøglen.
+  // Derfor prøver vi at ændre en fil med en bevidst forkert versions-id (sha). GitHub afviser altid
+  // det uden at ændre noget: 409/422 betyder, at nøglen må skrive; 403/404, at den ikke må.
+  const PROBE = { [DATA_REPO]: 'README.md', [LOGIN_REPO]: 'README.md', [SITE_REPO]: 'CNAME' };
   async function canPush(repo, token) {
-    const res = await api(`/repos/${repo}`, { token });
+    const res = await api(`/repos/${repo}/contents/${PROBE[repo]}`, {
+      token,
+      method: 'PUT',
+      body: { message: 'Adgangstest (gemmes aldrig)', content: btoa('test'), sha: '0'.repeat(40), branch: 'main' }
+    });
     if (res.status === 401) return 'bad';
-    if (!res.ok) return 'no';
-    return (await res.json()).permissions?.push ? 'yes' : 'no';
+    if (res.status === 409 || res.status === 422) return 'yes';
+    if (res.status === 403 || res.status === 404) return 'no';
+    return 'unknown';
   }
 
   // Tjekker nøglerne, før de gemmes. Returnerer en liste af fejl.
@@ -114,6 +123,7 @@ const Login = (() => {
     const errors = [];
     const [data, login, site] = await Promise.all([canPush(DATA_REPO, github), canPush(LOGIN_REPO, github), canPush(SITE_REPO, github)]);
     if (data === 'bad') errors.push('GitHub-nøglen virker ikke.');
+    else if ([data, login, site].includes('unknown')) errors.push('GitHub svarede ikke som forventet, så nøglen kunne ikke tjekkes. Prøv igen om lidt.');
     else {
       if (data !== 'yes') errors.push(`GitHub-nøglen skal kunne skrive i ${DATA_REPO}.`);
       if (login !== 'yes') errors.push(`GitHub-nøglen skal kunne skrive i ${LOGIN_REPO}.`);
